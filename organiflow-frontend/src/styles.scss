@@ -1,0 +1,359 @@
+/* ============================================================
+   ORGANIFLOW — Global Styles
+   Tailwind + Design Tokens + Base Styles
+   ============================================================ */
+
+@import 'tailwindcss';
+
+/* ============================================================
+   FUENTES
+   ============================================================ */
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&family=JetBrains+Mono:wght@400;500&display=swap');
+
+/* ============================================================
+   DESIGN TOKENS — Variables CSS globales
+   ============================================================ */
+:root {
+
+    /* --- Fuentes --- */
+    --font-sans: 'DM Sans', sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
+
+    /* --- Canvas --- */
+    --canvas-bg: #080e1a;
+    --canvas-grid-color: #1a2438;
+    --canvas-grid-size: 24px;
+
+    /* --- Superficie / Capas --- */
+    --surface-0: #080e1a;
+    /* fondo más profundo */
+    --surface-1: #0f1829;
+    /* paneles principales */
+    --surface-2: #162033;
+    /* cards, nodos */
+    --surface-3: #1e2d45;
+    /* hover, inputs */
+    --surface-4: #263652;
+    /* bordes activos */
+
+    /* --- Texto --- */
+    --text-primary: #e8edf5;
+    --text-secondary: #8a9bb8;
+    --text-muted: #4a5a72;
+    --text-accent: #7c9ef8;
+
+    /* --- Color primario (Indigo) --- */
+    --primary-50: #eef2ff;
+    --primary-100: #e0e7ff;
+    --primary-400: #818cf8;
+    --primary-500: #6366f1;
+    --primary-600: #4f46e5;
+    --primary-700: #4338ca;
+
+    /* --- Bordes --- */
+    --border-subtle: #1a2a42;
+    --border-default: #243347;
+    --border-strong: #334d6e;
+    --border-active: #6366f1;
+
+    /* --- Nodos --- */
+    --node-bg: #0f1e35;
+    --node-border: #1e3050;
+    --node-border-hover: #334d6e;
+    --node-selected: #6366f1;
+    --node-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+    --node-radius: 10px;
+    --node-header-h: 40px;
+
+    /* --- Tipos de relación entre nodos --- */
+    --rel-sequential: #22d3a0;
+    /* verde-teal */
+    --rel-sequential-glow: rgba(34, 211, 160, 0.25);
+    --rel-conditional: #f59e0b;
+    /* ámbar */
+    --rel-conditional-glow: rgba(245, 158, 11, 0.25);
+    --rel-iterative: #60a5fa;
+    /* azul */
+    --rel-iterative-glow: rgba(96, 165, 250, 0.25);
+    --rel-union: #c084fc;
+    /* morado */
+    --rel-union-glow: rgba(192, 132, 252, 0.25);
+
+    /* --- Estados de ejecución --- */
+    --status-pending: #475569;
+    --status-running: #3b82f6;
+    --status-completed: #22c55e;
+    --status-rejected: #ef4444;
+    --status-waiting: #f59e0b;
+
+    /* --- Roles / Actores --- */
+    --role-admin: #6366f1;
+    /* indigo */
+    --role-funcionario: #22d3a0;
+    /* teal */
+    --role-usuario: #60a5fa;
+    /* azul */
+
+    /* --- Sombras --- */
+    --shadow-sm: 0 1px 4px rgba(0, 0, 0, 0.3);
+    --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.4);
+    --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.5);
+    --shadow-glow-primary: 0 0 20px rgba(99, 102, 241, 0.3);
+
+    /* --- Transiciones --- */
+    --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-base: 250ms cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-slow: 400ms cubic-bezier(0.4, 0, 0.2, 1);
+
+    /* --- Sidebar / Layout --- */
+    --sidebar-width: 260px;
+    --topbar-height: 60px;
+    --panel-right-width: 320px;
+}
+
+/* ============================================================
+   RESET & BASE
+   ============================================================ */
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+html {
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+}
+
+body {
+    font-family: var(--font-sans);
+    background-color: var(--surface-0);
+    color: var(--text-primary);
+    min-height: 100vh;
+    overflow: hidden;
+    /* el canvas maneja su propio scroll */
+}
+
+/* Scrollbars personalizados */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--surface-1);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--surface-4);
+    border-radius: 999px;
+
+    &:hover {
+        background: var(--border-strong);
+    }
+}
+
+/* Selección de texto */
+::selection {
+    background: rgba(99, 102, 241, 0.3);
+    color: var(--text-primary);
+}
+
+/* ============================================================
+   TIPOGRAFÍA BASE
+   ============================================================ */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+    font-family: var(--font-sans);
+    font-weight: 600;
+    color: var(--text-primary);
+    line-height: 1.2;
+}
+
+p {
+    line-height: 1.6;
+    color: var(--text-secondary);
+}
+
+code,
+pre,
+kbd {
+    font-family: var(--font-mono);
+    font-size: 0.875em;
+}
+
+/* ============================================================
+   CLASES UTILITARIAS PROPIAS (@apply con Tailwind)
+   ============================================================ */
+
+/* --- Botones --- */
+/* Comentadas por compatibilidad con Tailwind v4 - se usarán clases directamente en los componentes */
+
+/* --- Cards / Paneles --- */
+.card {
+    background: var(--surface-2);
+    border: 1px solid var(--border-subtle);
+    border-radius: 12px;
+    padding: 1.5rem;
+}
+
+.panel {
+    background: var(--surface-1);
+    border: 1px solid var(--border-default);
+    border-radius: 8px;
+}
+
+/* --- Inputs --- */
+/* Comentadas por compatibilidad con Tailwind v4 */
+
+/* --- Badges de estado de ejecución --- */
+/* Comentadas por compatibilidad con Tailwind v4 */
+
+.badge-pending {
+    background: rgba(71, 85, 105, 0.3);
+    color: #94a3b8;
+}
+
+.badge-running {
+    background: rgba(59, 130, 246, 0.2);
+    color: #60a5fa;
+}
+
+.badge-completed {
+    background: rgba(34, 197, 94, 0.15);
+    color: #4ade80;
+}
+
+.badge-rejected {
+    background: rgba(239, 68, 68, 0.15);
+    color: #f87171;
+}
+
+.badge-waiting {
+    background: rgba(245, 158, 11, 0.15);
+    color: #fbbf24;
+}
+
+/* --- Badges de rol --- */
+.badge-admin {
+    background: rgba(99, 102, 241, 0.2);
+    color: #818cf8;
+}
+
+.badge-funcionario {
+    background: rgba(34, 211, 160, 0.15);
+    color: #2dd4bf;
+}
+
+.badge-usuario {
+    background: rgba(96, 165, 250, 0.15);
+    color: #60a5fa;
+}
+
+/* --- Badges de tipo de relación --- */
+.badge-sequential {
+    background: rgba(34, 211, 160, 0.15);
+    color: var(--rel-sequential);
+}
+
+.badge-conditional {
+    background: rgba(245, 158, 11, 0.15);
+    color: var(--rel-conditional);
+}
+
+.badge-iterative {
+    background: rgba(96, 165, 250, 0.15);
+    color: var(--rel-iterative);
+}
+
+.badge-union {
+    background: rgba(192, 132, 252, 0.15);
+    color: var(--rel-union);
+}
+
+/* --- Divider / Tooltip / Overlay --- */
+/* Comentadas por compatibilidad con Tailwind v4 */
+
+/* --- Animaciones --- */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(4px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes pulse-glow {
+
+    0%,
+    100% {
+        box-shadow: 0 0 8px rgba(99, 102, 241, 0.3);
+    }
+
+    50% {
+        box-shadow: 0 0 20px rgba(99, 102, 241, 0.6);
+    }
+}
+
+@keyframes spin-slow {
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.animate-fade-in {
+    animation: fadeIn 200ms ease-out forwards;
+}
+
+.animate-pulse-glow {
+    animation: pulse-glow 2s ease-in-out infinite;
+}
+
+.animate-spin-slow {
+    animation: spin-slow 3s linear infinite;
+}
+
+/* --- Canvas grid background --- */
+.canvas-bg {
+    background-color: var(--canvas-bg);
+    background-image:
+        radial-gradient(circle, var(--canvas-grid-color) 1px, transparent 1px);
+    background-size: var(--canvas-grid-size) var(--canvas-grid-size);
+}
+
+/* --- Indicador de micrófono activo (IA de voz) --- */
+.mic-active {
+    animation: pulse-glow 1.5s ease-in-out infinite;
+    border-color: var(--primary-500) !important;
+}
+
+/* ============================================================
+   UTILIDADES MONO
+   ============================================================ */
+.font-mono {
+    font-family: var(--font-mono);
+}
+
+.text-accent {
+    color: var(--text-accent);
+}
+
+.text-muted {
+    color: var(--text-muted);
+}
