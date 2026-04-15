@@ -1,0 +1,15 @@
+# Backend
+organiflow/target/
+organiflow/.mvn/
+organiflow/**/*.class
+
+# Frontend (cuando exista)
+organiflow-frontend/node_modules/
+organiflow-frontend/dist/
+organiflow-frontend/.angular/
+
+# Generales
+**/*.log
+**/*.lock
+**/package-lock.json
+**/.git/
