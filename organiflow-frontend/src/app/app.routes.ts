@@ -23,20 +23,18 @@ export const routes: Routes = [
         (m) => m.SelectTenantComponent
       )
   },
+
+  // ── Admin ──────────────────────────────────────────────────────────────
   {
     path: 'admin',
     loadComponent: () =>
-      import('./layouts/admin-layout/admin-layout.component').then(
-        (m) => m.AdminLayoutComponent
+      import('./layouts/main-layout/main-layout.component').then(
+        (m) => m.MainLayoutComponent
       ),
     canActivate: [authGuard, roleGuard],
     data: { roles: [UserRole.ADMIN] },
     children: [
-      {
-        path: '',
-        redirectTo: 'dashboard',
-        pathMatch: 'full'
-      },
+      { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
       {
         path: 'dashboard',
         loadComponent: () =>
@@ -67,20 +65,18 @@ export const routes: Routes = [
       }
     ]
   },
+
+  // ── Officer ────────────────────────────────────────────────────────────
   {
     path: 'officer',
     loadComponent: () =>
-      import('./layouts/officer-layout/officer-layout.component').then(
-        (m) => m.OfficerLayoutComponent
+      import('./layouts/main-layout/main-layout.component').then(
+        (m) => m.MainLayoutComponent
       ),
     canActivate: [authGuard, roleGuard],
     data: { roles: [UserRole.OFFICER] },
     children: [
-      {
-        path: '',
-        redirectTo: 'tasks',
-        pathMatch: 'full'
-      },
+      { path: '', redirectTo: 'tasks', pathMatch: 'full' },
       {
         path: 'tasks',
         loadComponent: () =>
@@ -104,20 +100,18 @@ export const routes: Routes = [
       }
     ]
   },
+
+  // ── User ───────────────────────────────────────────────────────────────
   {
     path: 'user',
     loadComponent: () =>
-      import('./layouts/user-layout/user-layout.component').then(
-        (m) => m.UserLayoutComponent
+      import('./layouts/main-layout/main-layout.component').then(
+        (m) => m.MainLayoutComponent
       ),
     canActivate: [authGuard, roleGuard],
     data: { roles: [UserRole.USER] },
     children: [
-      {
-        path: '',
-        redirectTo: 'executions',
-        pathMatch: 'full'
-      },
+      { path: '', redirectTo: 'executions', pathMatch: 'full' },
       {
         path: 'executions',
         loadComponent: () =>
@@ -148,8 +142,6 @@ export const routes: Routes = [
       }
     ]
   },
-  {
-    path: '**',
-    redirectTo: 'login'
-  }
+
+  { path: '**', redirectTo: 'login' }
 ];

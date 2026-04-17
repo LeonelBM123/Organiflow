@@ -1,74 +1,70 @@
-import { Component, inject, signal } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
-import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { AuthService } from '../../../../core/services/auth.service';
 import { LoginRequest, LoginResponse } from '../../../../core/models/auth.model';
+import { toast } from 'ngx-sonner';
 
 @Component({
   selector: 'app-login',
-  standalone: true,
-  imports: [CommonModule, ReactiveFormsModule],
+  imports: [ReactiveFormsModule],
   templateUrl: './login.component.html',
-  styleUrl: './login.component.scss'
+  styleUrl: './login.component.scss',
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class LoginComponent {
-  private fb = inject(FormBuilder);
-  private authService = inject(AuthService);
-  private router = inject(Router);
+  private readonly fb = inject(FormBuilder);
+  private readonly authService = inject(AuthService);
+  private readonly router = inject(Router);
 
-  loginForm: FormGroup;
-  isLoading = signal(false);
-  errorMessage = signal<string | null>(null);
+  readonly isLoading = signal(false);
 
-  constructor() {
-    this.loginForm = this.fb.group({
-      email: ['', [Validators.required, Validators.email]],
-      password: ['', [Validators.required, Validators.minLength(6)]]
-    });
-  }
+  readonly loginForm = this.fb.group({
+    email: ['', [Validators.required, Validators.email]],
+    password: ['', [Validators.required, Validators.minLength(6)]]
+  });
+
+  get email() { return this.loginForm.get('email'); }
+  get password() { return this.loginForm.get('password'); }
 
   onSubmit(): void {
     if (this.loginForm.invalid) {
       this.loginForm.markAllAsTouched();
+      toast.error('Validación de formulario', {
+        description: 'Por favor completa todos los campos correctamente'
+      });
       return;
     }
 
     this.isLoading.set(true);
-    this.errorMessage.set(null);
-
-    const credentials: LoginRequest = this.loginForm.value;
+    const credentials = this.loginForm.value as LoginRequest;
 
     this.authService.login(credentials).subscribe({
-      next: (response: LoginResponse) => {
-        this.isLoading.set(false);
-
-        // Si tiene múltiples tenants, navegar a selector
-        if (response.tenants && response.tenants.length > 0) {
-          this.router.navigate(['/select-tenant'], {
-            state: {
-              email: response.email,
-              name: response.name,
-              tenants: response.tenants
-            }
-          });
-        }
-        // Si tiene 1 tenant, AuthService ya manejó la navegación
-      },
-      error: (error) => {
-        this.isLoading.set(false);
-        this.errorMessage.set(
-          error.error?.message || 'Error al iniciar sesión. Verifica tus credenciales.'
-        );
-      }
+      next: (response) => this.handleLoginSuccess(response),
+      error: (error) => this.handleLoginError(error)
     });
   }
 
-  get email() {
-    return this.loginForm.get('email');
+  private handleLoginSuccess(response: LoginResponse): void {
+    this.isLoading.set(false);
+    toast.success('¡Bienvenido!', {
+      description: `Hola ${response.name}, sesión iniciada correctamente`
+    });
+
+    if (response.tenants && response.tenants.length > 1) {
+      // Múltiples tenants → el usuario elige empresa
+      this.router.navigate(['/select-tenant'], {
+        state: { email: response.email, name: response.name, tenants: response.tenants }
+      });
+    } else {
+      // 1 tenant → pasamos el rol directo desde la respuesta, sin depender del signal
+      this.authService.navigateByRole(response.role);
+    }
   }
 
-  get password() {
-    return this.loginForm.get('password');
+  private handleLoginError(error: unknown): void {
+    this.isLoading.set(false);
+    const msg = (error as any)?.error?.message ?? 'Error al iniciar sesión. Verifica tus credenciales.';
+    toast.error('Error de autenticación', { description: msg });
   }
 }

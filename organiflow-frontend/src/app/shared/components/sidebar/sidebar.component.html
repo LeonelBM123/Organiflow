@@ -1,0 +1,22 @@
+<aside
+  class="flex-1 w-64 bg-(--surface-2) border-r border-(--border-default) overflow-y-auto transition-colors duration-300"
+  aria-label="Menú de navegación lateral">
+
+  <!-- Nav items -->
+  <nav class="flex flex-col gap-1 px-3 py-6" aria-label="Sección de menú">
+    @for (item of navItems(); track item.route) {
+    <a [routerLink]="item.route" routerLinkActive="bg-(--surface-3) text-(--text-accent) font-semibold"
+      [routerLinkActiveOptions]="{ exact: false }" class="group flex items-center gap-3 px-1 py-2.5 text-sm font-medium rounded-lg
+               text-(--text-muted) hover:bg-(--surface-3) hover:text-(--text-primary)
+               transition-colors duration-150 outline-none
+               focus-visible:ring-2 focus-visible:ring-(--primary-500)">
+      <svg class="h-5 w-5 shrink-0 transition-colors duration-150" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+        stroke-width="1.75" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" [attr.d]="item.iconPath" />
+      </svg>
+      <span class="truncate">{{ item.label }}</span>
+    </a>
+    }
+  </nav>
+
+</aside>
