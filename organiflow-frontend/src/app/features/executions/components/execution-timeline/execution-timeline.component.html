@@ -1,0 +1,49 @@
+<div class="timeline" role="list" aria-label="Progreso del proceso">
+  @for (node of nodes(); track node.nodeId; let last = $last) {
+    <div class="timeline-item" role="listitem" [attr.aria-label]="node.nodeName + ': ' + statusLabels[node.status]">
+      <div class="item-track">
+        <div class="node-dot" [attr.data-status]="node.status" aria-hidden="true">
+          @switch (node.status) {
+            @case ('DONE') {
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                <path d="M2.5 6l2.5 2.5 4.5-5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            }
+            @case ('IN_PROGRESS') {
+              <div class="dot-spin"></div>
+            }
+            @case ('ESCALATED') {
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                <path d="M6 2v5M6 9v1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+              </svg>
+            }
+            @default {
+              <div class="dot-circle"></div>
+            }
+          }
+        </div>
+        @if (!last) {
+          <div class="track-line" [attr.data-done]="node.status === 'DONE'" aria-hidden="true"></div>
+        }
+      </div>
+      <div class="item-content">
+        <div class="item-header">
+          <span class="node-name">{{ node.nodeName }}</span>
+          <span class="node-type-badge">{{ node.nodeType }}</span>
+          <span class="status-badge" [attr.data-status]="node.status">
+            {{ statusLabels[node.status] }}
+          </span>
+        </div>
+        @if (node.assignedUserId) {
+          <span class="item-meta">Asignado a: {{ node.assignedUserId }}</span>
+        }
+        @if (node.startedAt) {
+          <span class="item-meta">Inicio: {{ formatDate(node.startedAt) }}</span>
+        }
+        @if (node.completedAt) {
+          <span class="item-meta">Fin: {{ formatDate(node.completedAt) }}</span>
+        }
+      </div>
+    </div>
+  }
+</div>

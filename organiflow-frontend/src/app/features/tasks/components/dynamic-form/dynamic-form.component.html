@@ -1,0 +1,125 @@
+@if (form()) {
+  <form [formGroup]="form()!" (ngSubmit)="onSubmit()" class="dynamic-form" novalidate [attr.aria-label]="schema().name">
+
+    <div class="form-title">{{ schema().name }}</div>
+
+    <div class="fields-grid">
+      @for (field of sortedFields(); track field.name) {
+        <div class="field-group" [class.full-width]="field.type === 'textarea'">
+          <label class="field-label" [for]="'field-' + field.name">
+            {{ field.label }}
+            @if (field.required) { <span class="required-mark" aria-hidden="true">*</span> }
+          </label>
+
+          @switch (field.type) {
+            @case ('text') {
+              <input
+                class="field-input"
+                type="text"
+                [id]="'field-' + field.name"
+                [formControlName]="field.name"
+                [attr.aria-required]="field.required"
+              />
+            }
+            @case ('number') {
+              <input
+                class="field-input"
+                type="number"
+                [id]="'field-' + field.name"
+                [formControlName]="field.name"
+                [attr.aria-required]="field.required"
+              />
+            }
+            @case ('date') {
+              <input
+                class="field-input"
+                type="date"
+                [id]="'field-' + field.name"
+                [formControlName]="field.name"
+                [attr.aria-required]="field.required"
+              />
+            }
+            @case ('textarea') {
+              <textarea
+                class="field-input textarea"
+                [id]="'field-' + field.name"
+                [formControlName]="field.name"
+                rows="4"
+                [attr.aria-required]="field.required"
+              ></textarea>
+            }
+            @case ('boolean') {
+              <label class="checkbox-label" [for]="'field-' + field.name">
+                <input
+                  type="checkbox"
+                  [id]="'field-' + field.name"
+                  [formControlName]="field.name"
+                  [attr.aria-required]="field.required"
+                  class="checkbox-input"
+                />
+                <span class="checkbox-text">{{ field.label }}</span>
+              </label>
+            }
+            @case ('select') {
+              <select
+                class="field-input"
+                [id]="'field-' + field.name"
+                [formControlName]="field.name"
+                [attr.aria-required]="field.required"
+              >
+                <option value="">— Selecciona —</option>
+                @for (opt of field.options ?? []; track opt) {
+                  <option [value]="opt">{{ opt }}</option>
+                }
+              </select>
+            }
+            @case ('multiselect') {
+              <div class="multiselect-group" role="group" [attr.aria-labelledby]="'field-' + field.name + '-label'">
+                <span [id]="'field-' + field.name + '-label'" class="sr-only">{{ field.label }}</span>
+                @for (opt of field.options ?? []; track opt) {
+                  <label class="checkbox-label" [for]="'field-' + field.name + '-' + opt">
+                    <input
+                      type="checkbox"
+                      [id]="'field-' + field.name + '-' + opt"
+                      [checked]="isMultiChecked(field.name, opt)"
+                      (change)="toggleMulti(field.name, opt)"
+                      [disabled]="isReadonly()"
+                      class="checkbox-input"
+                    />
+                    <span class="checkbox-text">{{ opt }}</span>
+                  </label>
+                }
+              </div>
+            }
+            @case ('file') {
+              <input
+                class="field-input"
+                type="file"
+                [id]="'field-' + field.name"
+                [formControlName]="field.name"
+                [attr.aria-required]="field.required"
+              />
+            }
+          }
+
+          @if (form()!.get(field.name)?.invalid && form()!.get(field.name)?.touched) {
+            <span class="field-error" role="alert">Este campo es requerido</span>
+          }
+        </div>
+      }
+    </div>
+
+    @if (!isReadonly()) {
+      <div class="form-actions">
+        <button
+          type="submit"
+          class="btn-submit"
+          [disabled]="form()!.invalid || isSubmitting()"
+          aria-live="polite"
+        >
+          @if (isSubmitting()) { Enviando... } @else { Completar tarea }
+        </button>
+      </div>
+    }
+  </form>
+}

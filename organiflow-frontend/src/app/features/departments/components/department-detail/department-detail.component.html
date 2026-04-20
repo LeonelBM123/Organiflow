@@ -1,0 +1,91 @@
+<div class="detail-page">
+
+  <!-- Back -->
+  <button class="btn-back" (click)="goBack()" aria-label="Volver a departamentos">
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <path d="M10 3L5 8l5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    Volver
+  </button>
+
+  <!-- Loading -->
+  @if (isLoading()) {
+    <div class="state-center" aria-live="polite" aria-busy="true">
+      <div class="spinner" aria-label="Cargando departamento"></div>
+      <span>Cargando...</span>
+    </div>
+  }
+
+  @if (!isLoading() && department()) {
+    <!-- Header -->
+    <div class="header">
+      <h1 class="page-title">{{ department()!.name }}</h1>
+      @if (department()!.description) {
+        <p class="page-subtitle">{{ department()!.description }}</p>
+      }
+      @if (department()!.headUserId) {
+        <div class="meta-row">
+          <span class="meta-label">Jefe:</span>
+          <span class="meta-value">{{ department()!.headUserId }}</span>
+        </div>
+      }
+    </div>
+
+    <!-- Members section -->
+    <div class="section">
+      <h2 class="section-title">Miembros ({{ department()!.memberUserIds.length }})</h2>
+
+      <!-- Add member -->
+      <div class="add-member-bar" role="group" aria-label="Agregar miembro">
+        <input
+          class="member-input"
+          type="text"
+          placeholder="ID del usuario"
+          [value]="newMemberUserId()"
+          (input)="setNewMemberUserId($any($event.target).value)"
+          (keydown.enter)="addMember()"
+          aria-label="ID del usuario a agregar"
+          autocomplete="off"
+        />
+        <button
+          class="btn-primary"
+          (click)="addMember()"
+          [disabled]="!newMemberUserId().trim() || isAddingMember()"
+          aria-label="Agregar miembro"
+        >
+          @if (isAddingMember()) { Agregando... } @else { Agregar }
+        </button>
+      </div>
+
+      <!-- Members list -->
+      @if (department()!.memberUserIds.length === 0) {
+        <div class="members-empty" role="status">
+          <p>Sin miembros aún. Agrega el primer miembro usando el campo de arriba.</p>
+        </div>
+      } @else {
+        <div class="members-list" role="list" aria-label="Lista de miembros">
+          @for (userId of department()!.memberUserIds; track userId) {
+            <div class="member-row" role="listitem">
+              <span class="member-avatar" aria-hidden="true">
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                  <circle cx="7" cy="5" r="3" stroke="currentColor" stroke-width="1.3"/>
+                  <path d="M1.5 13c0-3.038 2.462-5.5 5.5-5.5s5.5 2.462 5.5 5.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+                </svg>
+              </span>
+              <span class="member-id">{{ userId }}</span>
+              <button
+                class="action-btn danger"
+                (click)="removeMember(userId)"
+                [disabled]="removingMemberId() === userId"
+                [attr.aria-label]="'Remover miembro ' + userId"
+              >
+                @if (removingMemberId() === userId) { Removiendo... } @else { Remover }
+              </button>
+            </div>
+          }
+        </div>
+      }
+    </div>
+  }
+
+</div>

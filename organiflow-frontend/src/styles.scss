@@ -142,6 +142,14 @@
     /* 32px - Separación entre título y form */
     --space-xl: 3rem;
     /* 48px - Separación entre bloques grandes */
+
+    /* --- RGB helpers for rgba() --- */
+    --primary-rgb: 24, 119, 242;
+    --accent-teal-rgb: 16, 185, 129;
+    --accent-blue-rgb: 59, 130, 246;
+
+    /* --- Active status alias --- */
+    --status-active: #10B981;
 }
 
 /* ════════════════════════════════════════════════════════
@@ -200,18 +208,16 @@
     /* dDestructive */
     --rel-conditional: #EF4444;
     /* dDestructive */
+
+    /* --- RGB helpers (dark) --- */
+    --primary-rgb: 59, 130, 246;
+    --accent-teal-rgb: 16, 185, 129;
+    --accent-blue-rgb: 99, 102, 241;
+
+    /* --- Canvas grid for dark --- */
+    --canvas-grid-color: rgba(148, 163, 184, 0.08);
 }
 
-/* ============================================================
-   RESET & BASE
-   ============================================================ */
-*,
-*::before,
-*::after {
-    box-sizing: border-box;
-    margin: 0;
-    padding: 0;
-}
 
 html {
     font-size: 16px;
@@ -498,13 +504,13 @@ kbd {
     border-left: 4px solid #f59e0b !important;
 }
 
-// /* Botón de cerrar */
-// [data-sonner-toast] [data-close-button] {
-//     background: transparent !important;
-//     color: var(--text-muted) !important;
-//     opacity: 0.7 !important;
-//     transition: opacity 0.2s !important;
-// }
+/* Botón de cerrar */
+[data-sonner-toast] [data-close-button] {
+    background: transparent !important;
+    color: var(--text-muted) !important;
+    opacity: 0.7 !important;
+    transition: opacity 0.2s !important;
+}
 
 [data-sonner-toast] [data-close-button]:hover {
     opacity: 1 !important;
@@ -515,3 +521,4 @@ kbd {
 [data-sonner-toast] [data-icon] {
     margin-right: 12px !important;
 }
+

@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { Router, RouterOutlet } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
 import { UserRole } from '../../core/enums/user-role.enum';
@@ -97,6 +97,7 @@ export class MainLayoutComponent {
   private readonly router = inject(Router);
 
   readonly currentUser = this.authService.currentUser;
+  readonly isSidebarOpen = signal(false);
 
   readonly roleBadge = computed<RoleBadge | null>(() => {
     const role = this.currentUser()?.role;
@@ -113,6 +114,14 @@ export class MainLayoutComponent {
     }
   });
 
+  toggleSidebar(): void {
+    this.isSidebarOpen.update(isOpen => !isOpen);
+  }
+
+  closeSidebar(): void {
+    this.isSidebarOpen.set(false);
+  }
+  
   onLogout(): void {
     this.authService.logout().subscribe({
       complete: () => this.router.navigate(['/login']),

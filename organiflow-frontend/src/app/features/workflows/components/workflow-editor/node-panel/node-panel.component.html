@@ -1,0 +1,222 @@
+<aside class="node-panel" role="complementary" aria-label="Propiedades del nodo seleccionado">
+
+  <div class="panel-header">
+    <div class="panel-title-group">
+      @if (node()) {
+        <span class="node-type-badge" [attr.data-type]="node()!.type" [attr.aria-label]="nodeTypeLabels[node()!.type]">
+          {{ nodeTypeLabels[node()!.type] }}
+        </span>
+      }
+      <h2 class="panel-title">Propiedades</h2>
+    </div>
+    <button class="close-btn" (click)="close.emit()" aria-label="Cerrar panel de propiedades">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+        <path d="M12 4L4 12M4 4l8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+      </svg>
+    </button>
+  </div>
+
+  @if (!node()) {
+    <div class="panel-empty" aria-label="Sin nodo seleccionado">
+      <svg width="40" height="40" viewBox="0 0 40 40" fill="none" aria-hidden="true">
+        <rect x="8" y="14" width="24" height="16" rx="4" stroke="currentColor" stroke-width="1.5"/>
+        <path d="M14 10h12M20 6v4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        <circle cx="20" cy="22" r="3" stroke="currentColor" stroke-width="1.5"/>
+      </svg>
+      <p>Haz clic derecho sobre un nodo para editar sus propiedades</p>
+    </div>
+  }
+
+  @if (formReady() && form && node()) {
+    <form [formGroup]="form" (ngSubmit)="onSave()" class="panel-form" id="node-properties-form">
+
+      <!-- Nombre del nodo -->
+      <div class="field-group">
+        <label class="field-label" for="node-name">Nombre del paso</label>
+        <input
+          id="node-name"
+          class="field-input"
+          formControlName="name"
+          placeholder="Ej: Revisión de Solicitud"
+          autocomplete="off"
+          required
+          [attr.aria-invalid]="form.get('name')?.invalid && form.get('name')?.touched"
+        />
+      </div>
+
+      <!-- Rol responsable -->
+      <div class="field-group">
+        <label class="field-label" for="node-role">Rol responsable</label>
+        <select id="node-role" class="field-select" formControlName="assignedRole">
+          <option value="user">Cliente (usuario)</option>
+          <option value="officer">Funcionario</option>
+          <option value="admin">Administrador</option>
+        </select>
+      </div>
+
+      <!-- Timeout (solo TASK/ITERATOR) -->
+      @if (isTask) {
+        <div class="field-group">
+          <label class="field-label" for="node-timeout">Tiempo límite (horas)</label>
+          <input
+            id="node-timeout"
+            class="field-input"
+            type="number"
+            formControlName="timeoutHours"
+            placeholder="Sin límite"
+            min="1"
+            aria-describedby="timeout-hint"
+          />
+          <span id="timeout-hint" class="field-hint">
+            Si el funcionario no completa la tarea en este tiempo, se escala automáticamente
+          </span>
+        </div>
+
+        <!-- Formulario dinámico -->
+        <div class="section-divider" role="separator" aria-label="Sección formulario del paso">
+          <span>Formulario del paso</span>
+        </div>
+
+        <div class="field-group">
+          <label class="field-label" for="form-schema-name">Nombre del formulario</label>
+          <input
+            id="form-schema-name"
+            class="field-input"
+            formControlName="formSchemaName"
+            placeholder="Ej: Formulario de Revisión"
+            autocomplete="off"
+          />
+        </div>
+
+        <!-- Campos del formulario -->
+        <div class="fields-list" formArrayName="fields" aria-label="Campos del formulario">
+          @for (fieldCtrl of fields.controls; track $index) {
+            <div [formGroupName]="$index" class="field-card" role="group" [attr.aria-label]="'Campo ' + ($index + 1)">
+              <div class="field-card-header">
+                <span class="field-number">Campo {{ $index + 1 }}</span>
+                <button
+                  type="button"
+                  class="remove-btn"
+                  (click)="removeField($index)"
+                  [attr.aria-label]="'Eliminar campo ' + ($index + 1)"
+                >
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+                    <path d="M10.5 3.5L3.5 10.5M3.5 3.5l7 7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                  </svg>
+                </button>
+              </div>
+
+              <div class="field-row">
+                <div class="field-group flex-1">
+                  <label class="field-label" [for]="'field-name-' + $index">Nombre interno</label>
+                  <input
+                    [id]="'field-name-' + $index"
+                    class="field-input"
+                    formControlName="name"
+                    placeholder="monto_solicitado"
+                    autocomplete="off"
+                  />
+                </div>
+                <div class="field-group flex-1">
+                  <label class="field-label" [for]="'field-label-' + $index">Etiqueta visible</label>
+                  <input
+                    [id]="'field-label-' + $index"
+                    class="field-input"
+                    formControlName="label"
+                    placeholder="Monto Solicitado"
+                    autocomplete="off"
+                  />
+                </div>
+              </div>
+
+              <div class="field-row">
+                <div class="field-group flex-1">
+                  <label class="field-label" [for]="'field-type-' + $index">Tipo</label>
+                  <select [id]="'field-type-' + $index" class="field-select" formControlName="type">
+                    @for (t of fieldTypes; track t) {
+                      <option [value]="t">{{ t }}</option>
+                    }
+                  </select>
+                </div>
+                <div class="field-group field-required">
+                  <label class="field-label" [for]="'field-req-' + $index">Requerido</label>
+                  <label class="toggle" [attr.aria-label]="'Campo ' + ($index + 1) + ' requerido'">
+                    <input [id]="'field-req-' + $index" type="checkbox" formControlName="required" />
+                    <span class="toggle-track" aria-hidden="true"></span>
+                  </label>
+                </div>
+              </div>
+
+              @if (fieldCtrl.get('type')?.value === 'select' || fieldCtrl.get('type')?.value === 'multiselect') {
+                <div class="field-group">
+                  <label class="field-label" [for]="'field-opts-' + $index">Opciones (separadas por coma)</label>
+                  <input
+                    [id]="'field-opts-' + $index"
+                    class="field-input"
+                    formControlName="options"
+                    placeholder="Aprobar, Rechazar, Revisar"
+                    autocomplete="off"
+                  />
+                </div>
+              }
+            </div>
+          }
+
+          <button type="button" class="add-field-btn" (click)="addField()" aria-label="Agregar campo al formulario">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+              <path d="M7 1v12M1 7h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+            Agregar campo
+          </button>
+        </div>
+
+        <!-- Configuración de IA -->
+        <div class="section-divider" role="separator" aria-label="Sección asistencia de IA">
+          <span>Asistencia de IA</span>
+        </div>
+
+        <div class="field-group">
+          <label class="field-label" for="ai-prompt">Prompt de IA</label>
+          <textarea
+            id="ai-prompt"
+            class="field-textarea"
+            formControlName="aiPrompt"
+            placeholder="Ej: Analiza el perfil crediticio y sugiere una recomendación..."
+            rows="3"
+            aria-describedby="ai-prompt-hint"
+          ></textarea>
+          <span id="ai-prompt-hint" class="field-hint">
+            La IA puede leer todo el contexto del proceso al generar la sugerencia
+          </span>
+        </div>
+
+        <div class="field-row">
+          <div class="field-group flex-1">
+            <label class="field-label" for="ai-model">Modelo</label>
+            <select id="ai-model" class="field-select" formControlName="aiModel">
+              <option value="claude-sonnet-4-6">Claude Sonnet</option>
+              <option value="claude-haiku-4-5-20251001">Claude Haiku</option>
+            </select>
+          </div>
+          <div class="field-group field-required">
+            <label class="field-label" for="ai-auto">Auto-ejecutar</label>
+            <label class="toggle" aria-label="Auto-ejecutar IA al abrir el paso">
+              <input id="ai-auto" type="checkbox" formControlName="aiAutoExecute" />
+              <span class="toggle-track" aria-hidden="true"></span>
+            </label>
+          </div>
+        </div>
+      }
+
+      <!-- Acciones -->
+      <div class="panel-actions">
+        <button type="button" class="btn-secondary" (click)="close.emit()">Cancelar</button>
+        <button type="submit" class="btn-primary" [disabled]="form.invalid">
+          Guardar cambios
+        </button>
+      </div>
+
+    </form>
+  }
+
+</aside>

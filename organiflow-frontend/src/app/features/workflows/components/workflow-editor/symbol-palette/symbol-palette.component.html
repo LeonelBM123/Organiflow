@@ -1,0 +1,21 @@
+<aside class="palette-sidebar" aria-label="Paleta de elementos del diagrama">
+  <div class="palette-header">
+    <span class="palette-title">Herramientas</span>
+  </div>
+
+  <ejs-symbolpalette
+    id="organiflow-palette"
+    width="100%"
+    height="calc(100% - 44px)"
+    [expandMode]="expandMode"
+    [palettes]="palettes()"
+    [symbolHeight]="symbolHeight"
+    [symbolWidth]="symbolWidth"
+    [symbolMargin]="symbolMargin"
+    [getSymbolInfo]="getSymbolInfo"
+    [getNodeDefaults]="getNodeDefaults"
+    [getConnectorDefaults]="getConnectorDefaults"
+    role="list"
+    aria-label="Nodos, carriles y conectores disponibles para el diagrama"
+  ></ejs-symbolpalette>
+</aside>

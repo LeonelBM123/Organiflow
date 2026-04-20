@@ -1,0 +1,64 @@
+<div class="detail-page">
+
+  <!-- Back -->
+  <button class="btn-back" (click)="goBack()" aria-label="Volver a mis solicitudes">
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <path d="M10 3L5 8l5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    Volver
+  </button>
+
+  <!-- Loading -->
+  @if (isLoading()) {
+    <div class="state-center" aria-live="polite" aria-busy="true">
+      <div class="spinner" aria-label="Cargando solicitud"></div>
+      <span>Cargando...</span>
+    </div>
+  }
+
+  @if (!isLoading() && execution()) {
+    <!-- Header -->
+    <div class="header">
+      <div class="header-main">
+        <h1 class="page-title">{{ execution()!.workflowName }}</h1>
+        <span class="status-badge" [attr.data-status]="execution()!.status" [attr.aria-label]="statusLabels[execution()!.status]">
+          {{ statusLabels[execution()!.status] }}
+        </span>
+      </div>
+      <div class="header-meta">
+        <span>v{{ execution()!.workflowVersion }}</span>
+        <span class="dot" aria-hidden="true">·</span>
+        <span>Iniciado: {{ formatDate(execution()!.startedAt) }}</span>
+        @if (execution()!.completedAt) {
+          <span class="dot" aria-hidden="true">·</span>
+          <span>Finalizado: {{ formatDate(execution()!.completedAt) }}</span>
+        }
+      </div>
+
+      @if (execution()!.status === 'RUNNING') {
+        @if (showCancelConfirm()) {
+          <div class="cancel-confirm" role="group" aria-label="Confirmar cancelación">
+            <span class="confirm-text">¿Cancelar este proceso?</span>
+            <button class="btn-danger" (click)="cancelExecution()" [disabled]="isCanceling()">
+              @if (isCanceling()) { Cancelando... } @else { Sí, cancelar }
+            </button>
+            <button class="btn-secondary" (click)="abortCancel()">No, continuar</button>
+          </div>
+        } @else {
+          <button class="btn-danger-outline" (click)="confirmCancel()" aria-label="Cancelar solicitud">
+            Cancelar solicitud
+          </button>
+        }
+      }
+    </div>
+
+    <!-- Timeline -->
+    <div class="section">
+      <h2 class="section-title">Progreso del proceso</h2>
+      <div class="timeline-card">
+        <app-execution-timeline [nodes]="execution()!.executionNodes" />
+      </div>
+    </div>
+  }
+
+</div>

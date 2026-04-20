@@ -24,6 +24,19 @@ export const routes: Routes = [
       )
   },
 
+  // ── Workflow Editor (full-page, no main-layout) ────────────────────────
+  // Must come BEFORE the 'admin' parent route, otherwise Angular's prefix
+  // match on 'admin' consumes the URL and never reaches this standalone route.
+  {
+    path: 'admin/workflows/:id/edit',
+    canActivate: [authGuard, roleGuard],
+    data: { roles: [UserRole.ADMIN] },
+    loadComponent: () =>
+      import('./features/workflows/components/workflow-editor/workflow-editor.component').then(
+        (m) => m.WorkflowEditorComponent
+      )
+  },
+
   // ── Admin ──────────────────────────────────────────────────────────────
   {
     path: 'admin',
@@ -45,15 +58,22 @@ export const routes: Routes = [
       {
         path: 'workflows',
         loadComponent: () =>
-          import('./features/dashboard/components/admin-dashboard/admin-dashboard.component').then(
-            (m) => m.AdminDashboardComponent
+          import('./features/workflows/components/workflow-list/workflow-list.component').then(
+            (m) => m.WorkflowListComponent
           )
       },
       {
         path: 'departments',
         loadComponent: () =>
-          import('./features/dashboard/components/admin-dashboard/admin-dashboard.component').then(
-            (m) => m.AdminDashboardComponent
+          import('./features/departments/components/department-list/department-list.component').then(
+            (m) => m.DepartmentListComponent
+          )
+      },
+      {
+        path: 'departments/:id',
+        loadComponent: () =>
+          import('./features/departments/components/department-detail/department-detail.component').then(
+            (m) => m.DepartmentDetailComponent
           )
       },
       {
@@ -80,8 +100,15 @@ export const routes: Routes = [
       {
         path: 'tasks',
         loadComponent: () =>
-          import('./features/dashboard/components/officer-dashboard/officer-dashboard.component').then(
-            (m) => m.OfficerDashboardComponent
+          import('./features/tasks/components/task-list/task-list.component').then(
+            (m) => m.TaskListComponent
+          )
+      },
+      {
+        path: 'tasks/:id',
+        loadComponent: () =>
+          import('./features/tasks/components/task-detail/task-detail.component').then(
+            (m) => m.TaskDetailComponent
           )
       },
       {
@@ -115,15 +142,22 @@ export const routes: Routes = [
       {
         path: 'executions',
         loadComponent: () =>
-          import('./features/dashboard/components/user-dashboard/user-dashboard.component').then(
-            (m) => m.UserDashboardComponent
+          import('./features/executions/components/execution-list/execution-list.component').then(
+            (m) => m.ExecutionListComponent
+          )
+      },
+      {
+        path: 'executions/:id',
+        loadComponent: () =>
+          import('./features/executions/components/execution-detail/execution-detail.component').then(
+            (m) => m.ExecutionDetailComponent
           )
       },
       {
         path: 'new-request',
         loadComponent: () =>
-          import('./features/dashboard/components/user-dashboard/user-dashboard.component').then(
-            (m) => m.UserDashboardComponent
+          import('./features/executions/components/new-request/new-request.component').then(
+            (m) => m.NewRequestComponent
           )
       },
       {

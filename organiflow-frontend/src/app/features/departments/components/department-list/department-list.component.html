@@ -1,0 +1,104 @@
+<div class="list-page">
+
+  <!-- Header -->
+  <div class="page-header">
+    <div class="header-text">
+      <h1 class="page-title">Departamentos</h1>
+      <p class="page-subtitle">Gestiona las áreas y equipos de tu organización</p>
+    </div>
+    <button class="btn-primary" (click)="openCreate()" aria-label="Crear nuevo departamento">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+        <path d="M8 2v12M2 8h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+      </svg>
+      Nuevo departamento
+    </button>
+  </div>
+
+  <!-- Form inline -->
+  @if (showForm()) {
+    <app-department-form
+      [department]="editTarget()"
+      (saved)="onSaved($event)"
+      (cancelled)="onCancelled()"
+    />
+  }
+
+  <!-- Loading -->
+  @if (isLoading()) {
+    <div class="state-center" aria-live="polite" aria-busy="true">
+      <div class="spinner" aria-label="Cargando departamentos"></div>
+      <span>Cargando departamentos...</span>
+    </div>
+  }
+
+  <!-- Empty state -->
+  @if (isEmpty()) {
+    <div class="state-center" role="status">
+      <div class="empty-icon" aria-hidden="true">
+        <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+          <rect x="6" y="16" width="16" height="20" rx="2" stroke="currentColor" stroke-width="1.5"/>
+          <rect x="26" y="16" width="16" height="20" rx="2" stroke="currentColor" stroke-width="1.5"/>
+          <path d="M14 16v-4h20v4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <p class="empty-title">Sin departamentos</p>
+      <p class="empty-sub">Crea el primer departamento para organizar los equipos</p>
+      <button class="btn-primary" (click)="openCreate()">Crear departamento</button>
+    </div>
+  }
+
+  <!-- Table -->
+  @if (!isLoading() && departments().length > 0) {
+    <div class="table-wrapper" role="region" aria-label="Lista de departamentos">
+      <table class="data-table" aria-label="Departamentos">
+        <thead>
+          <tr>
+            <th scope="col">Nombre</th>
+            <th scope="col">Descripción</th>
+            <th scope="col">Jefe</th>
+            <th scope="col">Miembros</th>
+            <th scope="col">Creado</th>
+            <th scope="col"><span class="sr-only">Acciones</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (dept of departments(); track dept.id) {
+            <tr class="data-row">
+              <td class="cell-name">{{ dept.name }}</td>
+              <td class="cell-secondary">{{ dept.description || '—' }}</td>
+              <td class="cell-secondary">{{ dept.headUserId || '—' }}</td>
+              <td class="cell-count">
+                <span class="count-badge">{{ dept.memberUserIds.length }}</span>
+              </td>
+              <td class="cell-date">{{ formatDate(dept.createdAt) }}</td>
+              <td class="cell-actions">
+                <button
+                  class="action-btn"
+                  (click)="viewDetail(dept.id)"
+                  [attr.aria-label]="'Ver miembros de ' + dept.name"
+                >Miembros</button>
+                <button
+                  class="action-btn"
+                  (click)="openEdit(dept)"
+                  [attr.aria-label]="'Editar ' + dept.name"
+                >Editar</button>
+                @if (dept.memberUserIds.length === 0) {
+                  @if (deleteConfirmId() === dept.id) {
+                    <div class="delete-confirm" role="group" [attr.aria-label]="'Confirmar eliminación de ' + dept.name">
+                      <span class="confirm-text">¿Eliminar?</span>
+                      <button class="action-btn danger" (click)="deleteDepartment(dept.id)" [attr.aria-label]="'Confirmar eliminar ' + dept.name">Sí</button>
+                      <button class="action-btn" (click)="cancelDelete()" aria-label="Cancelar eliminación">No</button>
+                    </div>
+                  } @else {
+                    <button class="action-btn danger" (click)="confirmDelete(dept.id)" [attr.aria-label]="'Eliminar ' + dept.name">Eliminar</button>
+                  }
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+
+</div>

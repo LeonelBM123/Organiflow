@@ -1,0 +1,91 @@
+<div class="page">
+
+  <!-- Header -->
+  <div class="page-header">
+    <button class="btn-back" (click)="goBack()" aria-label="Volver a mis solicitudes">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+        <path d="M10 3L5 8l5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      Volver
+    </button>
+    <div class="header-text">
+      <h1 class="page-title">Nueva Solicitud</h1>
+      <p class="page-subtitle">Selecciona el proceso que deseas iniciar</p>
+    </div>
+  </div>
+
+  <!-- Loading -->
+  @if (isLoading()) {
+    <div class="state-center" aria-live="polite" aria-busy="true">
+      <div class="spinner" aria-label="Cargando procesos disponibles"></div>
+      <span>Cargando procesos disponibles...</span>
+    </div>
+  }
+
+  <!-- Empty state -->
+  @if (!isLoading() && workflows().length === 0) {
+    <div class="state-center" role="status">
+      <div class="empty-icon" aria-hidden="true">
+        <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+          <rect x="8" y="10" width="32" height="30" rx="3" stroke="currentColor" stroke-width="1.5"/>
+          <path d="M16 22h16M16 28h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          <circle cx="36" cy="12" r="5" fill="var(--bg-surface)" stroke="currentColor" stroke-width="1.5"/>
+          <path d="M34 12h4M36 10v4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <p class="empty-title">Sin procesos disponibles</p>
+      <p class="empty-sub">No hay workflows publicados. Contacta al administrador.</p>
+    </div>
+  }
+
+  <!-- Workflow cards -->
+  @if (!isLoading() && workflows().length > 0) {
+    <div class="cards-grid" role="list" aria-label="Procesos disponibles">
+      @for (wf of workflows(); track wf.id) {
+        <button
+          class="workflow-card"
+          [class.selected]="selectedWorkflowId() === wf.id"
+          (click)="selectWorkflow(wf.id)"
+          role="listitem"
+          [attr.aria-pressed]="selectedWorkflowId() === wf.id"
+          [attr.aria-label]="'Seleccionar proceso: ' + wf.name"
+        >
+          <div class="card-icon" aria-hidden="true">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+              <rect x="3" y="4" width="14" height="13" rx="2" stroke="currentColor" stroke-width="1.4"/>
+              <path d="M7 8h6M7 11h4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <div class="card-body">
+            <span class="card-name">{{ wf.name }}</span>
+            @if (wf.description) {
+              <span class="card-desc">{{ wf.description }}</span>
+            }
+            <span class="card-meta">{{ wf.totalNodes }} nodos · v{{ wf.currentVersion }}</span>
+          </div>
+          @if (selectedWorkflowId() === wf.id) {
+            <div class="card-check" aria-hidden="true">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <circle cx="8" cy="8" r="7" fill="var(--primary-500)"/>
+                <path d="M5 8l2.5 2.5L11 5.5" stroke="#fff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
+          }
+        </button>
+      }
+    </div>
+
+    <!-- Submit -->
+    <div class="submit-bar">
+      <button
+        class="btn-primary"
+        [disabled]="!selectedWorkflowId() || isSubmitting()"
+        (click)="submit()"
+        aria-live="polite"
+      >
+        @if (isSubmitting()) { Iniciando... } @else { Iniciar solicitud }
+      </button>
+    </div>
+  }
+
+</div>

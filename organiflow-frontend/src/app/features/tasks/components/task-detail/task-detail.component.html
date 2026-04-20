@@ -1,0 +1,116 @@
+<div class="detail-page">
+
+  <!-- Back -->
+  <button class="btn-back" (click)="goBack()" aria-label="Volver a mis tareas">
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <path d="M10 3L5 8l5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    Volver
+  </button>
+
+  <!-- Loading -->
+  @if (isLoading()) {
+    <div class="state-center" aria-live="polite" aria-busy="true">
+      <div class="spinner" aria-label="Cargando tarea"></div>
+      <span>Cargando tarea...</span>
+    </div>
+  }
+
+  @if (!isLoading() && task()) {
+    <!-- Header -->
+    <div class="header">
+      <div class="header-main">
+        <h1 class="page-title">{{ task()!.nodeName }}</h1>
+        <span class="status-badge" [attr.data-status]="task()!.status" [attr.aria-label]="statusLabels[task()!.status]">
+          {{ statusLabels[task()!.status] }}
+        </span>
+        @if (isOverdue(task()!.dueAt)) {
+          <span class="overdue-badge" aria-label="Tarea vencida">VENCIDA</span>
+        }
+      </div>
+      <div class="meta-grid">
+        @if (task()!.assignedRole) {
+          <div class="meta-item">
+            <span class="meta-label">Rol</span>
+            <span class="meta-value">{{ task()!.assignedRole }}</span>
+          </div>
+        }
+        @if (task()!.assignedUserId) {
+          <div class="meta-item">
+            <span class="meta-label">Asignado a</span>
+            <span class="meta-value">{{ task()!.assignedUserId }}</span>
+          </div>
+        }
+        @if (task()!.dueAt) {
+          <div class="meta-item">
+            <span class="meta-label">Vencimiento</span>
+            <span class="meta-value" [class.overdue-text]="isOverdue(task()!.dueAt)">
+              {{ formatDate(task()!.dueAt) }}
+            </span>
+          </div>
+        }
+        @if (task()!.completedAt) {
+          <div class="meta-item">
+            <span class="meta-label">Completado</span>
+            <span class="meta-value">{{ formatDate(task()!.completedAt) }}</span>
+          </div>
+        }
+      </div>
+    </div>
+
+    <!-- PENDING → tomar tarea -->
+    @if (task()!.status === 'PENDING') {
+      <div class="action-card" role="region" aria-label="Tomar tarea">
+        <p class="action-desc">Esta tarea está disponible para ser tomada. Al tomarla, se te asignará directamente.</p>
+        <button class="btn-primary" (click)="startTask()" [disabled]="isStarting()">
+          @if (isStarting()) { Tomando tarea... } @else { Tomar tarea }
+        </button>
+      </div>
+    }
+
+    <!-- IN_PROGRESS → formulario para completar -->
+    @if (task()!.status === 'IN_PROGRESS') {
+      <div class="section">
+        <h2 class="section-title">Completar tarea</h2>
+        @if (task()!.formSchema) {
+          <div class="form-card">
+            <app-dynamic-form
+              [schema]="task()!.formSchema!"
+              [isSubmitting]="isSubmitting()"
+              (submitted)="completeTask($event)"
+            />
+          </div>
+        } @else {
+          <div class="action-card">
+            <p class="action-desc">Esta tarea no requiere formulario. Confirma para marcarla como completada.</p>
+            <button class="btn-primary" (click)="completeTask({})" [disabled]="isSubmitting()">
+              @if (isSubmitting()) { Completando... } @else { Marcar como completada }
+            </button>
+          </div>
+        }
+      </div>
+    }
+
+    <!-- DONE → formulario en modo lectura -->
+    @if (task()!.status === 'DONE' && task()!.formSchema && task()!.formData) {
+      <div class="section">
+        <h2 class="section-title">Formulario completado</h2>
+        <div class="form-card">
+          <app-dynamic-form
+            [schema]="task()!.formSchema!"
+            [initialData]="task()!.formData!"
+            [isReadonly]="true"
+          />
+        </div>
+      </div>
+    }
+
+    <!-- ESCALATED / SKIPPED -->
+    @if (task()!.status === 'ESCALATED' || task()!.status === 'SKIPPED') {
+      <div class="action-card" role="status">
+        <p class="action-desc">Esta tarea fue marcada como <strong>{{ statusLabels[task()!.status] }}</strong> y no puede ser modificada.</p>
+      </div>
+    }
+  }
+
+</div>

@@ -1,0 +1,152 @@
+<div class="list-page">
+
+  <!-- Header -->
+  <div class="page-header">
+    <div class="header-text">
+      <h1 class="page-title">Workflows</h1>
+      <p class="page-subtitle">Diseña y gestiona las políticas de negocio de tu organización</p>
+    </div>
+    <button class="btn-primary" (click)="openCreateForm()" aria-label="Crear nuevo workflow">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+        <path d="M8 2v12M2 8h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+      </svg>
+      Nuevo Workflow
+    </button>
+  </div>
+
+  <!-- Create form -->
+  @if (showCreateForm()) {
+    <div class="create-card" role="dialog" aria-modal="true" aria-label="Crear workflow">
+      <h2 class="create-title">Nuevo Workflow</h2>
+      <div class="create-fields">
+        <div class="field-group">
+          <label class="field-label" for="wf-name">Nombre <span aria-hidden="true">*</span></label>
+          <input
+            id="wf-name"
+            class="field-input"
+            [(ngModel)]="newName"
+            placeholder="Ej: Solicitud de Crédito"
+            autocomplete="off"
+            required
+          />
+        </div>
+        <div class="field-group">
+          <label class="field-label" for="wf-desc">Descripción</label>
+          <input
+            id="wf-desc"
+            class="field-input"
+            [(ngModel)]="newDescription"
+            placeholder="Descripción opcional"
+            autocomplete="off"
+          />
+        </div>
+      </div>
+      <div class="create-actions">
+        <button class="btn-secondary" (click)="cancelCreate()">Cancelar</button>
+        <button
+          class="btn-primary"
+          (click)="createWorkflow()"
+          [disabled]="!newName.trim() || isCreating()"
+        >
+          @if (isCreating()) { Creando... } @else { Crear y diseñar }
+        </button>
+      </div>
+    </div>
+  }
+
+  <!-- Loading -->
+  @if (isLoading()) {
+    <div class="state-center" aria-live="polite" aria-busy="true">
+      <div class="spinner" aria-label="Cargando workflows"></div>
+      <span>Cargando workflows...</span>
+    </div>
+  }
+
+  <!-- Empty state -->
+  @if (isEmpty()) {
+    <div class="state-center" role="status">
+      <div class="empty-icon" aria-hidden="true">
+        <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+          <rect x="8" y="12" width="32" height="28" rx="3" stroke="currentColor" stroke-width="1.5"/>
+          <path d="M16 20h16M16 26h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          <circle cx="36" cy="36" r="8" fill="var(--bg-surface, #12121f)" stroke="currentColor" stroke-width="1.5"/>
+          <path d="M33 36h6M36 33v6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <p class="empty-title">Aún no hay workflows</p>
+      <p class="empty-sub">Crea el primero para comenzar a diseñar tus políticas de negocio</p>
+      <button class="btn-primary" (click)="openCreateForm()">Crear primer workflow</button>
+    </div>
+  }
+
+  <!-- Table -->
+  @if (!isLoading() && workflows().length > 0) {
+    <div class="table-wrapper" role="region" aria-label="Lista de workflows">
+      <table class="wf-table" aria-label="Workflows">
+        <thead>
+          <tr>
+            <th scope="col">Nombre</th>
+            <th scope="col">Estado</th>
+            <th scope="col">Versión</th>
+            <th scope="col">Nodos</th>
+            <th scope="col">Actualizado</th>
+            <th scope="col"><span class="sr-only">Acciones</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (wf of workflows(); track wf.id) {
+            <tr class="wf-row">
+              <td class="wf-name">
+                <span class="name-text">{{ wf.name }}</span>
+                @if (wf.description) {
+                  <span class="desc-text">{{ wf.description }}</span>
+                }
+              </td>
+              <td>
+                <span class="status-badge" [attr.data-status]="wf.status" [attr.aria-label]="statusLabels[wf.status]">
+                  {{ statusLabels[wf.status] }}
+                </span>
+              </td>
+              <td class="wf-version">v{{ wf.currentVersion }}</td>
+              <td class="wf-nodes">{{ wf.totalNodes }}</td>
+              <td class="wf-date">{{ formatDate(wf.updatedAt) }}</td>
+              <td class="wf-actions">
+                <button
+                  class="action-btn"
+                  (click)="editWorkflow(wf.id)"
+                  [attr.aria-label]="'Editar workflow ' + wf.name"
+                >
+                  <svg width="15" height="15" viewBox="0 0 15 15" fill="none" aria-hidden="true">
+                    <path d="M10.5 2.5l2 2L5 12H3v-2l7.5-7.5z" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                  Editar
+                </button>
+                @if (wf.status === 'DRAFT') {
+                  @if (deleteConfirmId() === wf.id) {
+                    <div class="delete-confirm" role="group" [attr.aria-label]="'Confirmar eliminación de ' + wf.name">
+                      <span class="confirm-text">¿Eliminar?</span>
+                      <button class="action-btn danger" (click)="deleteWorkflow(wf.id)" [attr.aria-label]="'Confirmar eliminar ' + wf.name">Sí</button>
+                      <button class="action-btn" (click)="cancelDelete()" aria-label="Cancelar eliminación">No</button>
+                    </div>
+                  } @else {
+                    <button
+                      class="action-btn danger"
+                      (click)="confirmDelete(wf.id)"
+                      [attr.aria-label]="'Eliminar workflow ' + wf.name"
+                    >
+                      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+                        <path d="M2 3.5h10M5 3.5V2.5h4v1M5.5 6v4M8.5 6v4M3 3.5l.5 8h7l.5-8" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+                      </svg>
+                      Eliminar
+                    </button>
+                  }
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+
+</div>

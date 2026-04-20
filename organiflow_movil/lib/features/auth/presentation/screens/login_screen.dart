@@ -95,7 +95,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         final userTenants = ref
                             .read(authControllerProvider.notifier)
                             .currentUserTenants;
-
                         if (userTenants == null || userTenants.isEmpty) {
                           // Caso borde (no debería pasar por tu corrección en backend, pero mejor prevenir)
                           ShadToaster.of(context).show(
