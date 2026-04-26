@@ -21,6 +21,7 @@ import { DepartmentService } from '../../../departments/services/department.serv
 import { Department } from '../../../departments/models/department.model';
 import { UserService, UserSummary } from '../../../../core/services/user.service';
 import { WorkflowResponse, WorkflowNode, WorkflowSaveRequest } from '../../models/workflow.model';
+import { AiService, AiMutation } from '../../services/ai.service';
 import { EditorToolbarComponent } from './toolbar/editor-toolbar.component';
 import { SymbolPaletteComponent } from './symbol-palette/symbol-palette.component';
 import { NodePanelComponent } from './node-panel/node-panel.component';
@@ -63,6 +64,7 @@ export class WorkflowEditorComponent implements OnInit, AfterViewInit, OnDestroy
   private readonly userService = inject(UserService);
   private readonly collaborationService = inject(CollaborationService);
   private readonly authService = inject(AuthService);
+  private readonly aiService = inject(AiService);
   private readonly cdr = inject(ChangeDetectorRef);
   private readonly zone = inject(NgZone);
 
@@ -76,6 +78,8 @@ export class WorkflowEditorComponent implements OnInit, AfterViewInit, OnDestroy
   readonly isLoading = signal(true);
   readonly isSaving = signal(false);
   readonly saveStatus = signal<SaveStatus>('saved');
+  readonly iaPrompt = signal('');
+  readonly isAiThinking = signal(false);
 
   readonly activeUsers = this.collaborationService.activeUsers;
   readonly connectionStatus = this.collaborationService.connectionStatus;
@@ -778,6 +782,158 @@ export class WorkflowEditorComponent implements OnInit, AfterViewInit, OnDestroy
       x: (clientX - rect.left - hOffset) / zoom,
       y: (clientY - rect.top - vOffset) / zoom,
     };
+  }
+
+  // ── AI assistant ───────────────────────────────────────────────────────────
+
+  onIaPromptInput(event: Event): void {
+    this.iaPrompt.set((event.target as HTMLInputElement).value);
+  }
+
+  pedirCambiosIA(): void {
+    const prompt = this.iaPrompt().trim();
+    if (!prompt || this.isAiThinking()) return;
+
+    // Extraer estado lógico limpio: solo IDs, nombres y tipos — sin coordenadas
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const currentNodes = (this.diagram.nodes as any[])
+      .filter(n => n.addInfo?.organiflowType)
+      .map(n => ({
+        id: n.id as string,
+        name: (n.addInfo?.name || n.annotations?.[0]?.content || 'Sin nombre') as string,
+        type: (n.addInfo?.organiflowType || 'TASK') as string,
+      }));
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const currentEdges = (this.diagram.connectors as any[]).map(c => ({
+      id: c.id as string,
+      sourceId: c.sourceID as string,
+      targetId: c.targetID as string,
+    }));
+
+    this.isAiThinking.set(true);
+    this.cdr.detectChanges();
+
+    this.aiService.getMutations({ prompt, current_nodes: currentNodes, current_edges: currentEdges }).subscribe({
+      next: (plan) => {
+        console.log('[IA] Razonamiento:', plan.razonamiento);
+        this.ejecutarMutacionesSyncfusion(plan.mutations);
+        this.iaPrompt.set('');
+        this.isAiThinking.set(false);
+        this.cdr.detectChanges();
+      },
+      error: (err) => {
+        console.error('[IA] Error contactando al microservicio:', err);
+        this.isAiThinking.set(false);
+        this.cdr.detectChanges();
+      },
+    });
+  }
+
+  private ejecutarMutacionesSyncfusion(mutations: AiMutation[]): void {
+    // ── 1. Borrar primero (edges antes que nodes para evitar referencias huérfanas)
+    mutations
+      .filter(m => m.action === 'DELETE_EDGE' && m.target_id)
+      .forEach(m => {
+        const obj = this.diagram.getObject(m.target_id!);
+        if (obj) this.diagram.remove(obj);
+      });
+
+    mutations
+      .filter(m => m.action === 'DELETE_NODE' && m.target_id)
+      .forEach(m => {
+        const obj = this.diagram.getObject(m.target_id!);
+        if (obj) this.diagram.remove(obj);
+      });
+
+    // ── 2. Actualizar etiquetas de nodos existentes
+    mutations
+      .filter(m => m.action === 'UPDATE_NODE' && m.target_id && m.node_data)
+      .forEach(m => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const node = this.diagram.getObject(m.target_id!) as any;
+        if (!node) return;
+        const newName = m.node_data!.name;
+        if (node.annotations?.length) {
+          node.annotations[0].content = newName;
+        }
+        node.addInfo = { ...(node.addInfo ?? {}), name: newName };
+        this.diagram.dataBind();
+        // Sincronizar en el signal
+        this.workflow.update(w => w ? ({
+          ...w,
+          nodes: w.nodes.map(n => n.id === m.target_id ? { ...n, name: newName } : n),
+        }) : w);
+      });
+
+    // ── 3. Añadir nodos nuevos
+    const nodeAdditions = mutations.filter(m => m.action === 'ADD_NODE' && m.node_data);
+    nodeAdditions.forEach((m, index) => {
+      const data = m.node_data!;
+      const nodeType = data.type ?? 'TASK';
+      // Posición provisional — doLayout() la reorganizará al final
+      const x = 400 + index * 220;
+      const y = 200 + index * 120;
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const node = this.buildNodeFromType(nodeType, x, y) as Record<string, any> | null;
+      if (!node) return;
+
+      node['id'] = data.id;
+      if (node['annotations']?.length) {
+        node['annotations'][0].content = data.name;
+      } else if (node['addInfo']) {
+        node['addInfo']['name'] = data.name;
+      }
+      if (node['addInfo']) {
+        node['addInfo']['name'] = data.name;
+        node['addInfo']['organiflowType'] = nodeType;
+      }
+
+      this.diagram.add(node);
+
+      // Registrar en el signal para que el NodePanel funcione
+      const newWorkflowNode: WorkflowNode = {
+        id: data.id,
+        name: data.name,
+        type: nodeType as WorkflowNode['type'],
+        laneId: '',
+        status: 'PENDING',
+        shape: { type: '', shape: '' },
+        offsetX: x,
+        offsetY: y,
+        width: 160,
+        height: 60,
+        annotations: [{ content: data.name }],
+        ports: [],
+      };
+      this.workflow.update(w => w ? ({
+        ...w,
+        nodes: [...w.nodes, newWorkflowNode],
+      }) : w);
+    });
+
+    // ── 4. Añadir conectores nuevos
+    mutations
+      .filter(m => m.action === 'ADD_EDGE' && m.edge_data)
+      .forEach(m => {
+        const edge = m.edge_data!;
+        this.diagram.add({
+          id: edge.id ?? `edge-${crypto.randomUUID()}`,
+          sourceID: edge.sourceId,
+          targetID: edge.targetId,
+          type: 'Orthogonal',
+          targetDecorator: { shape: 'Arrow' },
+        });
+      });
+
+    // ── 5. Reorganizar el canvas
+    this.diagram.doLayout();
+
+    // ── 6. Disparar auto-guardado
+    this.saveStatus.set('unsaved');
+    this.saveSubject.next();
+    this.collabChangeSubject.next();
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

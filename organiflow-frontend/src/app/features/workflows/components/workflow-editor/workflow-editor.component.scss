@@ -79,6 +79,80 @@
 
 @keyframes spin { to { transform: rotate(360deg); } }
 
+// ── AI Bar ────────────────────────────────────────────────────────────────────
+
+.ai-bar {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: min(640px, calc(100% - 32px));
+  background: var(--surface-2);
+  border: 1px solid var(--border-default);
+  border-radius: 12px;
+  padding: 8px 8px 8px 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18), 0 0 0 1px rgba(255,255,255,0.04);
+  backdrop-filter: blur(12px);
+}
+
+.ai-icon {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  color: var(--primary-400, #60a5fa);
+  opacity: 0.8;
+}
+
+.ai-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-family: var(--font-sans);
+  padding: 4px 0;
+  min-width: 0;
+
+  &::placeholder { color: var(--text-muted); }
+  &:disabled { cursor: not-allowed; }
+}
+
+.ai-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  padding: 7px 16px;
+  background: var(--primary-500);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: var(--font-sans);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, opacity 0.15s;
+
+  &:hover:not(:disabled) { background: var(--primary-600, #2563eb); }
+  &:disabled { opacity: 0.5; cursor: not-allowed; }
+}
+
+.ai-spinner {
+  width: 12px;
+  height: 12px;
+  border: 1.5px solid rgba(255, 255, 255, 0.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+
 // ── Syncfusion diagram overrides ─────────────────────────────────────────────
 
 ::ng-deep {
