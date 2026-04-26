@@ -1,15 +1,10 @@
 import { ChangeDetectionStrategy, Component, signal } from '@angular/core';
-import { WorkflowMapper } from '../../../services/workflow.mapper';
 
 export interface PaletteItem {
   id: string;
   nodeType: string;
   label: string;
   tooltip: string;
-  svgPath: string;
-  svgViewBox: string;
-  fill: string;
-  stroke: string;
 }
 
 export interface PaletteGroup {
@@ -27,7 +22,34 @@ export interface PaletteGroup {
 })
 export class SymbolPaletteComponent {
 
-  readonly groups = signal<PaletteGroup[]>(this.buildGroups());
+  readonly groups = signal<PaletteGroup[]>([
+    {
+      id: 'nodes',
+      title: 'Pasos del proceso',
+      expanded: true,
+      items: [
+        { id: 'sym-start', nodeType: 'START', label: 'Inicio', tooltip: 'Nodo de inicio del proceso' },
+        { id: 'sym-task', nodeType: 'TASK', label: 'Tarea', tooltip: 'Tarea asignada a un departamento' },
+        { id: 'sym-condition', nodeType: 'CONDITION', label: 'Decisión', tooltip: 'Punto de decisión condicional' },
+        { id: 'sym-iterator', nodeType: 'ITERATOR', label: 'Iterador', tooltip: 'Tarea en bucle' },
+        { id: 'sym-merge', nodeType: 'MERGE', label: 'Unión', tooltip: 'Converge múltiples flujos' },
+        { id: 'sym-end', nodeType: 'END', label: 'Fin', tooltip: 'Nodo final del proceso' },
+      ],
+    },
+    {
+      id: 'containers',
+      title: 'Contenedores',
+      expanded: true,
+      items: [
+        {
+          id: 'swimlane_1',
+          nodeType: 'SWIMLANE', // <-- Esto debe coincidir exactamente con el @if del HTML
+          label: 'Carriles (Swimlane)',
+          tooltip: 'Agrega un contenedor de carriles'
+        }
+      ]
+    }
+  ]);
 
   toggleGroup(groupId: string): void {
     this.groups.update(gs =>
@@ -35,84 +57,10 @@ export class SymbolPaletteComponent {
     );
   }
 
-  onDragStart(event: DragEvent, item: PaletteItem): void {
-    if (!event.dataTransfer) return;
-    event.dataTransfer.setData('organiflow/node-type', item.nodeType);
-    event.dataTransfer.effectAllowed = 'copy';
-  }
-
-  onKeyActivate(_event: Event, _item: PaletteItem): void {
-    // Keyboard-initiated drag is not natively supported; no-op here.
-  }
-
-  private buildGroups(): PaletteGroup[] {
-    return [
-      {
-        id: 'nodes',
-        title: 'Pasos del proceso',
-        expanded: true,
-        items: [
-          {
-            id: 'sym-start',
-            nodeType: 'START',
-            label: 'Inicio',
-            tooltip: 'Nodo de inicio del proceso',
-            // Circle (UML InitialNode)
-            svgViewBox: '0 0 40 40',
-            svgPath: 'M20,2 A18,18 0 1,1 19.999,2 Z',
-            ...WorkflowMapper.getNodeStyle('START'),
-          },
-          {
-            id: 'sym-task',
-            nodeType: 'TASK',
-            label: 'Tarea',
-            tooltip: 'Tarea asignada a un funcionario (UML Action)',
-            // Rounded rect (UML Action)
-            svgViewBox: '0 0 100 60',
-            svgPath: 'M8,2 H92 Q98,2 98,8 V52 Q98,58 92,58 H8 Q2,58 2,52 V8 Q2,2 8,2 Z',
-            ...WorkflowMapper.getNodeStyle('TASK'),
-          },
-          {
-            id: 'sym-condition',
-            nodeType: 'CONDITION',
-            label: 'Decisión',
-            tooltip: 'Punto de decisión (UML DecisionNode)',
-            // Diamond
-            svgViewBox: '0 0 80 60',
-            svgPath: 'M40,2 L78,30 L40,58 L2,30 Z',
-            ...WorkflowMapper.getNodeStyle('CONDITION'),
-          },
-          {
-            id: 'sym-iterator',
-            nodeType: 'ITERATOR',
-            label: 'Iterador',
-            tooltip: 'Tarea que se repite en bucle (UML Action con loop)',
-            svgViewBox: '0 0 100 60',
-            svgPath: 'M8,2 H92 Q98,2 98,8 V52 Q98,58 92,58 H8 Q2,58 2,52 V8 Q2,2 8,2 Z',
-            ...WorkflowMapper.getNodeStyle('ITERATOR'),
-          },
-          {
-            id: 'sym-merge',
-            nodeType: 'MERGE',
-            label: 'Unión',
-            tooltip: 'Converge múltiples flujos (UML JoinNode)',
-            // Horizontal bar
-            svgViewBox: '0 0 100 20',
-            svgPath: 'M2,2 H98 V18 H2 Z',
-            ...WorkflowMapper.getNodeStyle('MERGE'),
-          },
-          {
-            id: 'sym-end',
-            nodeType: 'END',
-            label: 'Fin',
-            tooltip: 'Nodo final del proceso (UML FinalNode)',
-            // Circle (UML FinalNode - represented as filled circle)
-            svgViewBox: '0 0 40 40',
-            svgPath: 'M20,2 A18,18 0 1,1 19.999,2 Z',
-            ...WorkflowMapper.getNodeStyle('END'),
-          },
-        ],
-      },
-    ];
+  onDragStart(event: Event, nodeType: string): void {
+    const dragEvent = event as DragEvent;
+    if (!dragEvent.dataTransfer) return;
+    dragEvent.dataTransfer.setData('organiflow/node-type', nodeType);
+    dragEvent.dataTransfer.effectAllowed = 'copy';
   }
 }

@@ -110,11 +110,10 @@
 }
 
 .item-icon {
-  width: 40px;
+  width: 44px;
   height: 36px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  display: block;
+  overflow: visible;
 }
 
 .item-label {
@@ -123,4 +122,9 @@
   color: var(--text-secondary);
   text-align: center;
   line-height: 1.2;
+}
+
+// En modo oscuro, el rectángulo blanco del nodo TASK necesita más contraste
+.item--task .item-icon rect:first-child {
+  fill: #f8fafc;
 }

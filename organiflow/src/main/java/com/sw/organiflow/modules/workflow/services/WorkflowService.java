@@ -88,10 +88,23 @@ public class WorkflowService {
             throw new RuntimeException("No se puede editar un workflow archivado");
         }
 
-        workflow.setLanes(request.getLanes());
-        workflow.setNodes(request.getNodes());
-        workflow.setEdges(request.getEdges());
-        workflow.setUiSchema(request.getUiSchema());
+        // Guard: only overwrite lists when the request actually contains data.
+        // A null or empty list from a partial save should not erase existing DB data.
+        if (request.getLanes() != null && !request.getLanes().isEmpty()) {
+            workflow.setLanes(request.getLanes());
+        }
+        if (request.getNodes() != null) {
+            workflow.setNodes(request.getNodes());
+        }
+        if (request.getEdges() != null) {
+            workflow.setEdges(request.getEdges());
+        }
+        // Only update uiSchema when it is a meaningful Syncfusion JSON (not "{}" or blank)
+        if (request.getUiSchema() != null
+                && !request.getUiSchema().isBlank()
+                && !request.getUiSchema().equals("{}")) {
+            workflow.setUiSchema(request.getUiSchema());
+        }
 
         // DEBUG: log each node id + type to diagnose START detection issues
         if (request.getNodes() != null) {

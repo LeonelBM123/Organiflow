@@ -4,6 +4,7 @@ import com.sw.organiflow.modules.workflow.models.Workflow;
 import com.sw.organiflow.modules.workflow.models.WorkflowEdge;
 import com.sw.organiflow.modules.workflow.models.WorkflowLane;
 import com.sw.organiflow.modules.workflow.models.WorkflowNode;
+import com.sw.organiflow.modules.workflow.models.WorkflowVersion;
 import com.sw.organiflow.shared.enums.WorkflowStatus;
 import lombok.Builder;
 import lombok.Data;
@@ -25,6 +26,7 @@ public class WorkflowResponse {
     private List<WorkflowLane> lanes;
     private List<WorkflowNode> nodes;
     private List<WorkflowEdge> edges;
+    private List<WorkflowVersion> versions;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private String uiSchema;
@@ -41,6 +43,7 @@ public class WorkflowResponse {
                 .lanes(w.getLanes())
                 .nodes(w.getNodes())
                 .edges(w.getEdges())
+                .versions(w.getVersions())
                 .createdAt(w.getCreatedAt())
                 .updatedAt(w.getUpdatedAt())
                 .uiSchema(w.getUiSchema())

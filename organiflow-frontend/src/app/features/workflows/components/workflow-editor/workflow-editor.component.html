@@ -11,14 +11,14 @@
     <div #canvasWrapper class="canvas-wrapper" [class.loading]="isLoading()" role="main"
       aria-label="Canvas del diagrama de workflow">
 
-      @if (isLoading()) {
+      @if (isLoading() || isInitializingDiagram()) {
       <div class="canvas-loading" aria-live="polite" aria-busy="true">
         <div class="spinner" aria-label="Cargando diagrama"></div>
         <span>Cargando diagrama...</span>
       </div>
       }
 
-      <div class="diagram-host" [class.hidden]="isLoading()">
+      <div class="diagram-host" [class.hidden]="isLoading() || isInitializingDiagram()">
 
         <div class="diagram-drop-zone"
           (drop)="onCanvasDrop($event)"
@@ -28,14 +28,17 @@
             [getNodeDefaults]="nodeDefaults"
             [getConnectorDefaults]="connectorDefaults"
             [snapSettings]="snapSettings"
+            [pageSettings]="pageSettings"
             (selectionChange)="onDiagramClick($event)"
             (doubleClick)="onDiagramDblClick($event)"
             (historyChange)="onDiagramModified()"
-            (collectionChange)="onDiagramModified()">
+            (collectionChange)="onDiagramModified()"
+            (positionChange)="onNodePositionChange($event)"
+            (scrollChange)="onDiagramScrollChange($event)">
           </ejs-diagram>
         </div>
 
-        <app-remote-cursors [cursors]="remoteCursors()"></app-remote-cursors>
+        <app-remote-cursors [cursors]="displayCursors()"></app-remote-cursors>
 
         <!-- ── Barra de IA ──────────────────────────────────────────────── -->
         @if (workflow()?.status === 'DRAFT') {

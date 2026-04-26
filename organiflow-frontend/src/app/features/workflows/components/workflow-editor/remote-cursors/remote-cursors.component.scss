@@ -14,6 +14,8 @@
   align-items: flex-start;
   gap: 3px;
   will-change: transform;
+  // Smooth glide between position updates (throttleTime is 80 ms, so we match it)
+  transition: transform 80ms linear;
 }
 
 .cursor-icon {

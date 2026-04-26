@@ -3,6 +3,7 @@ import {
   ChangeDetectionStrategy,
   ChangeDetectorRef,
   Component,
+  computed,
   ElementRef,
   inject,
   NgZone,
@@ -14,7 +15,7 @@ import {
 import { ActivatedRoute, Router } from '@angular/router';
 import { Subject, debounceTime, takeUntil, finalize, fromEvent, throttleTime } from 'rxjs';
 import { DiagramModule, DiagramComponent, PrintAndExportService, UndoRedoService, SnappingService } from '@syncfusion/ej2-angular-diagrams';
-import { UndoRedo, PrintAndExport, DiagramConstraints, NodeConstraints, ConnectorConstraints, SnapConstraints, PortVisibility, PortConstraints } from '@syncfusion/ej2-diagrams';
+import { UndoRedo, PrintAndExport, DiagramConstraints, DiagramTools, NodeConstraints, ConnectorConstraints, SnapConstraints, PortVisibility, PortConstraints } from '@syncfusion/ej2-diagrams';
 import { WorkflowService } from '../../services/workflow.service';
 import { WorkflowMapper } from '../../services/workflow.mapper';
 import { DepartmentService } from '../../../departments/services/department.service';
@@ -76,6 +77,7 @@ export class WorkflowEditorComponent implements OnInit, AfterViewInit, OnDestroy
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   readonly selectedConnector = signal<any | null>(null);
   readonly isLoading = signal(true);
+  readonly isInitializingDiagram = signal(false);
   readonly isSaving = signal(false);
   readonly saveStatus = signal<SaveStatus>('saved');
   readonly iaPrompt = signal('');
@@ -85,10 +87,27 @@ export class WorkflowEditorComponent implements OnInit, AfterViewInit, OnDestroy
   readonly connectionStatus = this.collaborationService.connectionStatus;
   readonly remoteCursors = this.collaborationService.remoteCursors;
 
+  private readonly diagramViewport = signal({ zoom: 1, hOffset: 0, vOffset: 0 });
+
+  readonly displayCursors = computed(() => {
+    const { zoom, hOffset, vOffset } = this.diagramViewport();
+    return this.remoteCursors().map(c => ({
+      ...c,
+      x: c.x * zoom + hOffset,
+      y: c.y * zoom + vOffset,
+    }));
+  });
+
   // Syncfusion diagram configuration
   readonly snapSettings = {
     constraints: SnapConstraints.ShowLines | SnapConstraints.SnapToLines,
     gridType: 'Dot' as const,
+  };
+
+  // Remove the white-page rectangle that Syncfusion renders behind the swimlane
+  readonly pageSettings = {
+    showPageBreaks: false,
+    background: { color: 'transparent' },
   };
 
   // Constraints a nivel de diagrama: habilitar selección, drag, conexión, zoom y pan
@@ -99,12 +118,17 @@ export class WorkflowEditorComponent implements OnInit, AfterViewInit, OnDestroy
   // Configuración global para permitir conexiones en nodos
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   readonly nodeDefaults = (node: any) => {
-    // Select | Drag | Rotate | Resize | InConnect | OutConnect
+    // 🚨 EL ESCUDO DEFINITIVO: Ignorar el Pool, los Carriles, Fases y Cabeceras
+    if (node.shape?.type === 'SwimLane' || node.isLane || node.isPhase || node.isHeader) {
+      return node;
+    }
+
+    // Para las tareas normales, aplicamos tus reglas
     node.constraints =
       NodeConstraints.Default |
       NodeConstraints.InConnect |
       NodeConstraints.OutConnect;
-    // Mostrar puertos al hacer hover para dibujar conexiones
+
     node.ports?.forEach((p: any) => { p.visibility = PortVisibility.Hover | PortVisibility.Connect; });
     return node;
   };
@@ -158,6 +182,7 @@ export class WorkflowEditorComponent implements OnInit, AfterViewInit, OnDestroy
     }
 
     this.setupCursorTracking();
+    this.setupKeyboardNavigation();
   }
 
   ngOnDestroy(): void {
@@ -174,6 +199,9 @@ export class WorkflowEditorComponent implements OnInit, AfterViewInit, OnDestroy
     this.workflowService.findById(this.workflowId()).subscribe({
       next: (workflow) => {
         this.workflow.set(workflow);
+        // Keep the diagram host hidden until the swimlane has rendered and
+        // fitToPage has run — prevents the "white square" flash and the jump.
+        this.isInitializingDiagram.set(true);
         this.isLoading.set(false);
         this.cdr.detectChanges();
 
@@ -196,17 +224,30 @@ export class WorkflowEditorComponent implements OnInit, AfterViewInit, OnDestroy
       try {
         const parsed = JSON.parse(workflow.uiSchema);
 
+        // Legacy JointJS format
         if (WorkflowMapper.isJointJsSchema(parsed)) {
           this.populateFromLanesOrDepartments(workflow);
           return;
         }
 
+        // Syncfusion schema saved WITHOUT a swimlane (old format) — rebuild with lanes
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const hasSwimlane = (parsed.nodes ?? []).some((n: any) => n.shape?.type === 'SwimLane');
+        if (!hasSwimlane) {
+          this.populateFromLanesOrDepartments(workflow);
+          return;
+        }
+
+        // Valid Syncfusion schema with swimlane — load directly
         this.isLoadingDiagram = true;
         this.diagram.loadDiagram(workflow.uiSchema);
         setTimeout(() => {
+          this.diagram.fitToPage({ mode: 'Width', region: 'Content' });
           this.isLoadingDiagram = false;
+          this.isInitializingDiagram.set(false);
+          this.cdr.detectChanges();
           this.initCollaboration();
-        }, 100);
+        }, 350);
       } catch {
         this.populateFromLanesOrDepartments(workflow);
       }
@@ -216,33 +257,44 @@ export class WorkflowEditorComponent implements OnInit, AfterViewInit, OnDestroy
   }
 
   private populateFromLanesOrDepartments(workflow: WorkflowResponse): void {
-    if (workflow.lanes.length > 0) {
+    // SwimLane nodes MUST be loaded via diagram.loadDiagram() — diagram.add() silently
+    // ignores them. We serialize the nodes+connectors to JSON and let Syncfusion
+    // initialize the swimlane canvas from scratch.
+    const doLoad = (lanes: typeof workflow.lanes) => {
+      const { nodes, connectors } = WorkflowMapper.toSyncfusion({ ...workflow, lanes });
       this.isLoadingDiagram = true;
-      const { nodes, connectors } = WorkflowMapper.toSyncfusion(workflow);
-      nodes.forEach(n => this.diagram.add(n));
-      connectors.forEach(c => this.diagram.add(c));
+
+      this.diagram.clear();
+      nodes.forEach(node => this.diagram.add(node));
+      connectors.forEach(conn => this.diagram.add(conn));
+      this.diagram.dataBind();
+      this.diagram.doLayout();
       this.diagram.fitToPage({ mode: 'Width', region: 'Content' });
+      this.isLoadingDiagram = false;
+
+      // Reveal the diagram only after Syncfusion has had one paint cycle to
+      // apply the swimlane layout — prevents the "white square" flash and jump.
       setTimeout(() => {
-        this.isLoadingDiagram = false;
+        this.isInitializingDiagram.set(false);
+        this.cdr.detectChanges();
         this.initCollaboration();
-      }, 100);
+      }, 0);
+    };
+
+    if (workflow.lanes.length > 0) {
+      doLoad(workflow.lanes);
     } else {
       this.departmentService.findAll().subscribe({
         next: (departments) => {
           const lanes = WorkflowMapper.departmentsToLanes(departments);
-          const { nodes, connectors } = WorkflowMapper.toSyncfusion({ ...workflow, lanes });
-          this.isLoadingDiagram = true;
-          nodes.forEach(n => this.diagram.add(n));
-          connectors.forEach(c => this.diagram.add(c));
-          this.diagram.fitToPage({ mode: 'Width', region: 'Content' });
-          setTimeout(() => {
-            this.isLoadingDiagram = false;
-            this.saveGraph();
-            this.initCollaboration();
-          }, 100);
+          doLoad(lanes);
+          // Persist the generated swimlane schema so subsequent loads use loadDiagram(uiSchema)
+          setTimeout(() => this.saveGraph(), 200);
         },
         error: () => {
           this.isLoadingDiagram = false;
+          this.isInitializingDiagram.set(false);
+          this.cdr.detectChanges();
           this.initCollaboration();
         },
       });
@@ -278,13 +330,13 @@ export class WorkflowEditorComponent implements OnInit, AfterViewInit, OnDestroy
           if (!s) return n;
           return {
             ...n,
-            type:           s.type           ?? n.type,   // ← type del signal (fuente de verdad)
-            name:           s.name           ?? n.name,
-            departmentId:   s.departmentId   ?? n.departmentId,
+            type: s.type ?? n.type,   // ← type del signal (fuente de verdad)
+            name: s.name ?? n.name,
+            departmentId: s.departmentId ?? n.departmentId,
             assignedUserId: s.assignedUserId ?? n.assignedUserId,
-            timeoutHours:   s.timeoutHours   ?? n.timeoutHours,
-            formSchema:     s.formSchema     ?? n.formSchema,
-            aiConfig:       s.aiConfig       ?? n.aiConfig,
+            timeoutHours: s.timeoutHours ?? n.timeoutHours,
+            formSchema: s.formSchema ?? n.formSchema,
+            aiConfig: s.aiConfig ?? n.aiConfig,
           };
         });
       } else {
@@ -330,13 +382,13 @@ export class WorkflowEditorComponent implements OnInit, AfterViewInit, OnDestroy
         if (!s) return n;
         return {
           ...n,
-          type:           s.type           ?? n.type,
-          name:           s.name           ?? n.name,
-          departmentId:   s.departmentId   ?? n.departmentId,
+          type: s.type ?? n.type,
+          name: s.name ?? n.name,
+          departmentId: s.departmentId ?? n.departmentId,
           assignedUserId: s.assignedUserId ?? n.assignedUserId,
-          timeoutHours:   s.timeoutHours   ?? n.timeoutHours,
-          formSchema:     s.formSchema     ?? n.formSchema,
-          aiConfig:       s.aiConfig       ?? n.aiConfig,
+          timeoutHours: s.timeoutHours ?? n.timeoutHours,
+          formSchema: s.formSchema ?? n.formSchema,
+          aiConfig: s.aiConfig ?? n.aiConfig,
         };
       });
     } else if (stateNodes.length > 0 && saveRequest.nodes.length === 0) {
@@ -399,10 +451,10 @@ export class WorkflowEditorComponent implements OnInit, AfterViewInit, OnDestroy
   onDiagramClick(event: any): void {
     const selected = event?.newValue;
     if (!selected || selected.length === 0) {
-      this.zone.run(() => { 
-        this.selectedNode.set(null); 
+      this.zone.run(() => {
+        this.selectedNode.set(null);
         this.selectedConnector.set(null);
-        this.cdr.detectChanges(); 
+        this.cdr.detectChanges();
       });
       return;
     }
@@ -411,8 +463,8 @@ export class WorkflowEditorComponent implements OnInit, AfterViewInit, OnDestroy
 
     // Check if it's a connector
     if (element.sourceID && element.targetID) {
-      this.zone.run(() => { 
-        this.selectedNode.set(null); 
+      this.zone.run(() => {
+        this.selectedNode.set(null);
         // We only configure connectors that originate from a CONDITION node
         const sourceNode = this.diagram.getObject(element.sourceID) as any;
         if (sourceNode?.addInfo?.organiflowType === 'CONDITION') {
@@ -420,7 +472,7 @@ export class WorkflowEditorComponent implements OnInit, AfterViewInit, OnDestroy
         } else {
           this.selectedConnector.set(null);
         }
-        this.cdr.detectChanges(); 
+        this.cdr.detectChanges();
       });
       return;
     }
@@ -444,15 +496,15 @@ export class WorkflowEditorComponent implements OnInit, AfterViewInit, OnDestroy
     if (!element) return;
 
     if (element.sourceID && element.targetID) {
-      this.zone.run(() => { 
-        this.selectedNode.set(null); 
+      this.zone.run(() => {
+        this.selectedNode.set(null);
         const sourceNode = this.diagram.getObject(element.sourceID) as any;
         if (sourceNode?.addInfo?.organiflowType === 'CONDITION') {
           this.selectedConnector.set(element);
         } else {
           this.selectedConnector.set(null);
         }
-        this.cdr.detectChanges(); 
+        this.cdr.detectChanges();
       });
       return;
     }
@@ -536,16 +588,143 @@ export class WorkflowEditorComponent implements OnInit, AfterViewInit, OnDestroy
 
   onCanvasDrop(event: DragEvent): void {
     event.preventDefault();
-    event.stopPropagation(); // Evitar que el evento burbujee y dispare el handler dos veces
+    event.stopPropagation();
     const nodeType = event.dataTransfer?.getData('organiflow/node-type');
-    // Si no hay nodeType propio, es un drag interno de Syncfusion — ignorar
     if (!nodeType) return;
 
+    // ── 1. INTERCEPCIÓN INTELIGENTE DE CARRILES (SWIMLANES) ──
+    if (nodeType === 'SWIMLANE') {
+      const poolModel = this.diagram.nodes.find(n => (n.shape as any)?.type === 'SwimLane');
+
+      if (poolModel) {
+        const existingCount = (poolModel.shape as any).lanes?.length ?? 0;
+        const pastelColors = ['#f4f7ff', '#f0fdf4', '#faf5ff', '#fffbeb', '#fef2f2', '#f0f9ff'];
+        const headerFill = pastelColors[existingCount % pastelColors.length];
+
+        const newLane = [{
+          id: `lane_${crypto.randomUUID()}`,
+          width: 240,
+          header: {
+            height: 44,
+            annotation: {
+              content: 'Nuevo Departamento',
+              style: { fontSize: 11, bold: true, color: '#334155' },
+            },
+            style: { fill: headerFill, strokeColor: '#e2e8f0' },
+          },
+          style: { fill: '#fafbfc', strokeColor: '#e2e8f0' },
+        }];
+
+        const currentLanesCount = (poolModel.shape as any).lanes?.length || 0;
+
+        // Pasamos el "poolModel" directamente, SIN usar getObject()
+        this.diagram.addLanes(poolModel as any, newLane, currentLanesCount);
+
+        // Le damos a Syncfusion unos milisegundos para procesar el SVG antes de avisarle a Angular
+        setTimeout(() => {
+          this.diagram.dataBind();
+          this.onDiagramModified();
+        }, 50);
+
+        return;
+      }
+    }
+
+    // ── 2. FLUJO NORMAL PARA LOS DEMÁS NODOS (O EL PRIMER SWIMLANE) ──
     const { x, y } = this.toDiagramPoint(event.clientX, event.clientY);
     const node = this.buildNodeFromType(nodeType, x, y);
-    if (node) {
-      this.diagram.add(node);
+    if (!node) return;
+
+    this.diagram.add(node);
+
+    const nodeId = node['id'] as string;
+    setTimeout(() => {
+      const added = this.diagram.getObject(nodeId) as any;
+      if (added) this.syncLaneFromParent(added);
+    }, 80);
+  }
+
+  // ── Lane detection ─────────────────────────────────────────────────────────
+
+  /**
+   * Fires on every position change during drag. We only care about 'Completed'
+   * (mouse-up) to avoid running heavy logic on every mousemove tick.
+   */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  onNodePositionChange(event: any): void {
+    if (event.state !== 'Completed') return;
+    const nodeId: string = event.source?.id ?? event.element?.id;
+    if (!nodeId) return;
+    const node = this.diagram.getObject(nodeId) as any;
+    if (node) this.syncLaneFromParent(node);
+  }
+
+  /**
+   * Reads node.parentId to detect if it is inside a swimlane lane.
+   * Lane IDs follow the pattern: <swimlaneId>lane_<departmentId>
+   * e.g. "swimlane-mainlane_abc123"
+   *
+   * When detected:
+   *  - updates addInfo.laneId / addInfo.departmentId on the live node
+   *  - syncs the workflow signal so NodePanel shows the pre-filled department
+   *  - triggers auto-save
+   */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private syncLaneFromParent(node: any): void {
+    const parentId: string = node.parentId ?? '';
+    const marker = parentId.indexOf('lane_');
+    if (marker === -1) return;                      // not inside any lane
+
+    // departmentId is the canonical lane identifier (no "lane_" prefix) — matches WorkflowLane.id
+    const syncfusionLaneId = parentId.substring(marker); // "lane_<deptId>" (Syncfusion internal)
+    const departmentId = syncfusionLaneId.replace('lane_', '');
+    if (!departmentId) return;
+
+    // Skip if already assigned to this same department
+    if ((node.addInfo as Record<string, unknown>)?.['departmentId'] === departmentId) return;
+
+    // 1. Patch addInfo on the live Syncfusion node.
+    //    Store laneId WITHOUT "lane_" prefix so it matches WorkflowLane.id
+    //    and survives the fromSyncfusion → toSyncfusion round-trip correctly.
+    node.addInfo = {
+      ...(node.addInfo as Record<string, unknown> ?? {}),
+      laneId: departmentId,   // canonical: no prefix
+      departmentId,
+    };
+    this.diagram.dataBind();
+
+    // 2. Sync into the workflow signal (source of truth for NodePanel)
+    this.workflow.update(w => {
+      if (!w) return w;
+      const exists = w.nodes.some(n => n.id === (node.id as string));
+      const updated: WorkflowNode = exists
+        ? { ...w.nodes.find(n => n.id === node.id)!, laneId: departmentId, departmentId }
+        : this.resolveNodeData(node.id as string, node.addInfo as Record<string, unknown>) ?? { id: node.id, laneId: departmentId, departmentId } as unknown as WorkflowNode;
+
+      return {
+        ...w,
+        nodes: exists
+          ? w.nodes.map(n => n.id === (node.id as string) ? updated : n)
+          : [...w.nodes, updated],
+      };
+    });
+
+    // 3. If the NodePanel is already open for this node, refresh its data
+    //    so the department select shows the new value immediately.
+    if (this.selectedNode()?.id === (node.id as string)) {
+      const refreshed = this.resolveNodeData(node.id as string, node.addInfo as Record<string, unknown>);
+      if (refreshed) {
+        this.zone.run(() => {
+          this.selectedNode.set(refreshed);
+          this.cdr.detectChanges();
+        });
+      }
     }
+
+    // 4. Trigger auto-save
+    this.saveStatus.set('unsaved');
+    this.saveSubject.next();
+    this.collabChangeSubject.next();
   }
 
   onCanvasDragOver(event: DragEvent): void {
@@ -581,10 +760,10 @@ export class WorkflowEditorComponent implements OnInit, AfterViewInit, OnDestroy
       // Puertos de conexión visibles al hacer hover en los 4 lados
       // PortConstraints.Draw es OBLIGATORIO para poder arrastrar y crear conectores
       ports: [
-        { id: 'top',    offset: { x: 0.5, y: 0 },   visibility: PortVisibility.Hover | PortVisibility.Connect, constraints: PortConstraints.Default | PortConstraints.Draw, shape: 'Circle' as const, width: 8, height: 8, style: { fill: '#3b82f6', strokeColor: '#1d4ed8' } },
-        { id: 'right',  offset: { x: 1,   y: 0.5 }, visibility: PortVisibility.Hover | PortVisibility.Connect, constraints: PortConstraints.Default | PortConstraints.Draw, shape: 'Circle' as const, width: 8, height: 8, style: { fill: '#3b82f6', strokeColor: '#1d4ed8' } },
-        { id: 'bottom', offset: { x: 0.5, y: 1 },   visibility: PortVisibility.Hover | PortVisibility.Connect, constraints: PortConstraints.Default | PortConstraints.Draw, shape: 'Circle' as const, width: 8, height: 8, style: { fill: '#3b82f6', strokeColor: '#1d4ed8' } },
-        { id: 'left',   offset: { x: 0,   y: 0.5 }, visibility: PortVisibility.Hover | PortVisibility.Connect, constraints: PortConstraints.Default | PortConstraints.Draw, shape: 'Circle' as const, width: 8, height: 8, style: { fill: '#3b82f6', strokeColor: '#1d4ed8' } },
+        { id: 'top', offset: { x: 0.5, y: 0 }, visibility: PortVisibility.Hover | PortVisibility.Connect, constraints: PortConstraints.Default | PortConstraints.Draw, shape: 'Circle' as const, width: 8, height: 8, style: { fill: '#3b82f6', strokeColor: '#1d4ed8' } },
+        { id: 'right', offset: { x: 1, y: 0.5 }, visibility: PortVisibility.Hover | PortVisibility.Connect, constraints: PortConstraints.Default | PortConstraints.Draw, shape: 'Circle' as const, width: 8, height: 8, style: { fill: '#3b82f6', strokeColor: '#1d4ed8' } },
+        { id: 'bottom', offset: { x: 0.5, y: 1 }, visibility: PortVisibility.Hover | PortVisibility.Connect, constraints: PortConstraints.Default | PortConstraints.Draw, shape: 'Circle' as const, width: 8, height: 8, style: { fill: '#3b82f6', strokeColor: '#1d4ed8' } },
+        { id: 'left', offset: { x: 0, y: 0.5 }, visibility: PortVisibility.Hover | PortVisibility.Connect, constraints: PortConstraints.Default | PortConstraints.Draw, shape: 'Circle' as const, width: 8, height: 8, style: { fill: '#3b82f6', strokeColor: '#1d4ed8' } },
       ],
       addInfo: {
         organiflowType: nodeType,
@@ -690,18 +869,48 @@ export class WorkflowEditorComponent implements OnInit, AfterViewInit, OnDestroy
       case 'MERGE':
         return {
           ...base,
-          width: 20,
-          height: 50,
+          width: 100,
+          height: 12,
           shape: {
             type: 'UmlActivity',
             shape: 'JoinNode',
           },
           style: {
-            fill: '#444',
-            strokeColor: '#444',
+            fill: '#1e293b',
+            strokeColor: '#0f172a',
           },
         };
-
+      case 'SWIMLANE':
+        return {
+          id,
+          offsetX: x,
+          offsetY: y,
+          // 1. Invertimos las dimensiones por defecto para que sea vertical (alto y angosto)
+          width: 300,
+          height: 500,
+          shape: {
+            type: 'SwimLane',
+            // 2. AQUÍ ESTÁ LA MAGIA: Cambiamos la orientación
+            orientation: 'Vertical',
+            header: {
+              annotation: { content: 'Título del Proceso' },
+              width: 44, // Vertical orientation: header bar runs along the left side
+            },
+            lanes: [
+              {
+                id: `lane_${crypto.randomUUID()}`,
+                // 3. En Vertical, la cabecera del carril ocupa el alto, no el ancho
+                header: { annotation: { content: 'Departamento' }, height: 40 }
+              }
+            ]
+          },
+          addInfo: {
+            organiflowType: nodeType,
+            name: 'Contenedor',
+            status: 'PENDING',
+            laneId: '',
+          },
+        };
       default:
         return null;
     }
@@ -729,12 +938,49 @@ export class WorkflowEditorComponent implements OnInit, AfterViewInit, OnDestroy
     if (!uiSchema || !this.diagram) return;
     this.isApplyingRemoteChange = true;
     this.zone.run(() => { this.selectedNode.set(null); this.cdr.detectChanges(); });
+
+    // Snapshot receiver's viewport — loadDiagram resets it to defaults
+    // even when scrollSettings is absent from the incoming schema.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const scroller = (this.diagram as any).scroller;
+    const savedZoom    = scroller?.currentZoom      ?? 1;
+    const savedHOffset = scroller?.horizontalOffset ?? 0;
+    const savedVOffset = scroller?.verticalOffset   ?? 0;
+
     try {
-      this.diagram.loadDiagram(uiSchema);
+      // Strip scrollSettings so the sender's viewport does not override the receiver's camera
+      let schema = uiSchema;
+      try {
+        const parsed = JSON.parse(uiSchema);
+        if (parsed.scrollSettings) {
+          delete parsed.scrollSettings;
+          schema = JSON.stringify(parsed);
+        }
+      } catch { /* use original if parse fails */ }
+      this.diagram.loadDiagram(schema);
+
+      // Restore receiver's viewport after loadDiagram has settled.
+      // We use scrollSettings + dataBind (the idiomatic Syncfusion way) and
+      // also write directly to the scroller so both the model and the runtime
+      // agree, preventing the visible jump on the next paint.
+      setTimeout(() => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const s = (this.diagram as any).scroller;
+        if (s) {
+          s.currentZoom      = savedZoom;
+          s.horizontalOffset = savedHOffset;
+          s.verticalOffset   = savedVOffset;
+        }
+        this.diagram.scrollSettings.horizontalOffset = savedHOffset;
+        this.diagram.scrollSettings.verticalOffset   = savedVOffset;
+        this.diagram.scrollSettings.zoomFactor       = savedZoom;
+        this.diagram.dataBind();
+        this.isApplyingRemoteChange = false;
+      }, 0);
     } catch (err) {
       console.error('[Editor] Error en applyRemoteChange:', err);
+      setTimeout(() => { this.isApplyingRemoteChange = false; }, 200);
     }
-    setTimeout(() => { this.isApplyingRemoteChange = false; }, 200);
   }
 
   private sendDiagramChanged(): void {
@@ -742,10 +988,45 @@ export class WorkflowEditorComponent implements OnInit, AfterViewInit, OnDestroy
     if (this.isApplyingRemoteChange || this.isLoadingDiagram) return;
     if (this.workflow()?.status !== 'DRAFT') return;
     try {
-      const uiSchema = this.diagram.saveDiagram();
-      if (!uiSchema || uiSchema === '{}') return;
+      const raw = this.diagram.saveDiagram();
+      if (!raw || raw === '{}') return;
+
+      // Strip scroll/viewport state before broadcasting — each client keeps
+      // its own camera; sending the sender's viewport causes jumps on receivers.
+      let uiSchema = raw;
+      try {
+        const parsed = JSON.parse(raw);
+        if (parsed.scrollSettings) {
+          delete parsed.scrollSettings;
+          uiSchema = JSON.stringify(parsed);
+        }
+      } catch { /* send raw if parse fails */ }
+
       this.collaborationService.sendChanged(this.workflowId(), uiSchema);
     } catch { /* non-critical */ }
+  }
+
+  // ── Keyboard navigation ────────────────────────────────────────────────────
+
+  private setupKeyboardNavigation(): void {
+    this.zone.runOutsideAngular(() => {
+      fromEvent<KeyboardEvent>(document, 'keydown').pipe(
+        takeUntil(this.destroy$),
+      ).subscribe(e => {
+        if (e.code !== 'Space') return;
+        const tag = (e.target as HTMLElement).tagName;
+        if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+        e.preventDefault();
+        this.diagram.tool = DiagramTools.ZoomPan;
+      });
+
+      fromEvent<KeyboardEvent>(document, 'keyup').pipe(
+        takeUntil(this.destroy$),
+      ).subscribe(e => {
+        if (e.code !== 'Space') return;
+        this.diagram.tool = DiagramTools.Default;
+      });
+    });
   }
 
   // ── Cursor tracking ────────────────────────────────────────────────────────
@@ -759,11 +1040,26 @@ export class WorkflowEditorComponent implements OnInit, AfterViewInit, OnDestroy
         throttleTime(80),
         takeUntil(this.destroy$),
       ).subscribe(event => {
-        const rect = containerEl.getBoundingClientRect();
-        const x = event.clientX - rect.left;
-        const y = event.clientY - rect.top;
-        this.collaborationService.sendCursor(this.workflowId(), x, y, null);
+        // Send diagram content-space coordinates so receivers can reproject
+        // with their own zoom/pan — cursor stays accurate at any zoom level.
+        const pt = this.toDiagramPoint(event.clientX, event.clientY);
+        this.collaborationService.sendCursor(this.workflowId(), pt.x, pt.y, null);
       });
+    });
+  }
+
+  onDiagramScrollChange(_event: any): void {
+    // While applying a remote change, loadDiagram resets the scroller to
+    // defaults and fires scrollChange before we can restore it. Blocking the
+    // update here prevents diagramViewport from briefly holding wrong values,
+    // which would cause remote cursors to jump to incorrect positions.
+    if (this.isApplyingRemoteChange) return;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const scroller = (this.diagram as any).scroller;
+    this.diagramViewport.set({
+      zoom:    scroller?.currentZoom      ?? 1,
+      hOffset: scroller?.horizontalOffset ?? 0,
+      vOffset: scroller?.verticalOffset   ?? 0,
     });
   }
 
