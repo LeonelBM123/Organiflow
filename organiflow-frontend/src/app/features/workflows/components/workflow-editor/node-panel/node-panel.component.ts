@@ -1,6 +1,7 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  computed,
   effect,
   inject,
   input,
@@ -16,6 +17,8 @@ import {
   ReactiveFormsModule
 } from '@angular/forms';
 import { WorkflowNode, NodeType, FormField, FieldType } from '../../../models/workflow.model';
+import { Department } from '../../../../departments/models/department.model';
+import { UserSummary } from '../../../../../core/services/user.service';
 
 @Component({
   selector: 'app-node-panel',
@@ -29,11 +32,22 @@ export class NodePanelComponent implements OnInit {
   private readonly fb = inject(FormBuilder);
 
   readonly node = input<WorkflowNode | null>(null);
+  readonly departments = input<Department[]>([]);
+  readonly users = input<UserSummary[]>([]);
   readonly save = output<WorkflowNode>();
   readonly close = output<void>();
 
   form!: FormGroup;
   readonly formReady = signal(false);
+  readonly selectedDepartmentId = signal<string>('');
+
+  readonly departmentMembers = computed(() => {
+    const deptId = this.selectedDepartmentId();
+    if (!deptId) return [];
+    const dept = this.departments().find(d => d.id === deptId);
+    if (!dept) return [];
+    return this.users().filter(u => dept.memberUserIds.includes(u.id));
+  });
 
   readonly fieldTypes: FieldType[] = [
     'text', 'number', 'select', 'multiselect',
@@ -77,7 +91,8 @@ export class NodePanelComponent implements OnInit {
   buildForm(node: WorkflowNode): void {
     this.form = this.fb.group({
       name: [node.name, Validators.required],
-      assignedRole: [node.assignedRole || 'officer'],
+      departmentId: [node.departmentId || ''],
+      assignedUserId: [node.assignedUserId || ''],
       timeoutHours: [node.timeoutHours ?? null],
       formSchemaName: [node.formSchema?.name || ''],
       fields: this.fb.array(
@@ -87,7 +102,15 @@ export class NodePanelComponent implements OnInit {
       aiModel: [node.aiConfig?.model || 'claude-sonnet-4-6'],
       aiAutoExecute: [node.aiConfig?.autoExecute || false]
     });
+    this.selectedDepartmentId.set(node.departmentId || '');
     this.formReady.set(true);
+  }
+
+  onDepartmentChange(event: Event): void {
+    const value = (event.target as HTMLSelectElement).value;
+    this.selectedDepartmentId.set(value);
+    // Reset user when dept changes
+    this.form.get('assignedUserId')?.setValue('');
   }
 
   buildFieldGroup(field: Partial<FormField> = {}): FormGroup {
@@ -118,7 +141,8 @@ export class NodePanelComponent implements OnInit {
     const updatedNode: WorkflowNode = {
       ...n,
       name: v.name,
-      assignedRole: v.assignedRole,
+      departmentId: v.departmentId || undefined,
+      assignedUserId: v.assignedUserId || undefined,
       timeoutHours: v.timeoutHours || undefined,
       formSchema: this.isTask ? {
         name: v.formSchemaName || `Formulario — ${v.name}`,

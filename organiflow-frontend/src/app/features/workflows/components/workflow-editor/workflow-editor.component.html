@@ -1,62 +1,61 @@
 <div class="editor-root">
 
-  <app-editor-toolbar
-    [workflow]="workflow()"
-    [saveStatus]="saveStatus()"
-    [activeUsers]="activeUsers()"
-    [connectionStatus]="connectionStatus()"
-    (saveClick)="saveGraph()"
-    (publishClick)="openPublishDialog()"
-    (draftClick)="revertToDraft()"
-    (archiveClick)="archiveWorkflow()"
-  ></app-editor-toolbar>
+  <app-editor-toolbar [workflow]="workflow()" [saveStatus]="saveStatus()" [activeUsers]="activeUsers()"
+    [connectionStatus]="connectionStatus()" (saveClick)="saveGraph()" (publishClick)="openPublishDialog()"
+    (draftClick)="revertToDraft()" (archiveClick)="archiveWorkflow()"></app-editor-toolbar>
 
   <div class="editor-body">
 
     <app-symbol-palette></app-symbol-palette>
 
-    <div class="canvas-wrapper" [class.loading]="isLoading()" role="main" aria-label="Canvas del diagrama de workflow">
+    <div #canvasWrapper class="canvas-wrapper" [class.loading]="isLoading()" role="main"
+      aria-label="Canvas del diagrama de workflow">
 
       @if (isLoading()) {
-        <div class="canvas-loading" aria-live="polite" aria-busy="true">
-          <div class="spinner" aria-label="Cargando diagrama"></div>
-          <span>Cargando diagrama...</span>
-        </div>
+      <div class="canvas-loading" aria-live="polite" aria-busy="true">
+        <div class="spinner" aria-label="Cargando diagrama"></div>
+        <span>Cargando diagrama...</span>
+      </div>
       }
 
-      @if (!isLoading()) {
-        <ejs-diagram
-          #diagram
-          id="organiflow-diagram"
-          width="100%"
-          height="100%"
-          [nodes]="diagramNodes()"
-          [connectors]="diagramConnectors()"
-          [tool]="tool"
-          [snapSettings]="snapSettings"
-          [selectedItems]="selectorSettings"
-          [getNodeDefaults]="getNodeDefaults"
-          [getConnectorDefaults]="getConnectorDefaults"
-          (dragEnter)="onDragEnter($event)"
-          (collectionChange)="onCollectionChange($event)"
-          (positionChange)="onPositionChange($event)"
-          (connectionChange)="onConnectionChange($event)"
-          (selectionChange)="onSelectionChange($event)"
-          (doubleClick)="onDoubleClick($event)"
-          (contextmenu)="onRightClick($event)"
-          role="img"
-          aria-label="Editor visual de workflow"
-        ></ejs-diagram>
+      <div class="diagram-host" [class.hidden]="isLoading()">
+
+        <div class="diagram-drop-zone"
+          (drop)="onCanvasDrop($event)"
+          (dragover)="onCanvasDragOver($event)">
+          <ejs-diagram #diagram id="organiflow-diagram" width="100%" height="100%"
+            [constraints]="diagramConstraints"
+            [getNodeDefaults]="nodeDefaults"
+            [getConnectorDefaults]="connectorDefaults"
+            [snapSettings]="snapSettings"
+            (selectionChange)="onDiagramClick($event)"
+            (doubleClick)="onDiagramDblClick($event)"
+            (historyChange)="onDiagramModified()"
+            (collectionChange)="onDiagramModified()">
+          </ejs-diagram>
+        </div>
 
         <app-remote-cursors [cursors]="remoteCursors()"></app-remote-cursors>
-      }
+
+      </div>
+
     </div>
 
     <app-node-panel
       [node]="selectedNode()"
+      [departments]="departments()"
+      [users]="tenantUsers()"
+      [class.open]="!!selectedNode()"
       (save)="onNodePropertiesSaved($event)"
-      (close)="selectedNode.set(null)"
-    ></app-node-panel>
+      (close)="selectedNode.set(null)">
+    </app-node-panel>
+
+    <app-connector-panel
+      [connector]="selectedConnector()"
+      [class.open]="!!selectedConnector()"
+      (save)="onConnectorPropertiesSaved($event)"
+      (close)="selectedConnector.set(null)">
+    </app-connector-panel>
 
   </div>
 </div>

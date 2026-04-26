@@ -4,6 +4,14 @@
   height: 100%;
   min-height: 0;
   overflow: hidden;
+  // Slide-in: el panel se muestra solo cuando hay un nodo seleccionado
+  transition: width 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  width: 0;
+
+  &.open {
+    width: 370px;
+    min-width: 370px;
+  }
 }
 
 .node-panel {
@@ -16,7 +24,7 @@
   flex-direction: column;
   overflow: hidden;
   font-family: var(--font-sans);
-  box-shadow: -4px 0 16px rgba(0, 0, 0, 0.06);
+  box-shadow: -4px 0 24px rgba(0, 0, 0, 0.08);
   transition: background 0.3s ease, border-color 0.3s ease;
 }
 
@@ -165,6 +173,22 @@
   cursor: pointer;
   appearance: auto;
   option { background: var(--surface-2); color: var(--text-primary); }
+
+  &:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+    background: var(--surface-3);
+  }
+}
+
+.field-optional {
+  font-size: 10px;
+  font-weight: 400;
+  color: var(--text-secondary);
+  text-transform: none;
+  letter-spacing: 0;
+  opacity: 0.7;
+  margin-left: 4px;
 }
 
 .field-textarea { resize: vertical; min-height: 72px; }

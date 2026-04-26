@@ -1,357 +1,405 @@
-import {
-  NodeModel,
-  ConnectorModel,
-  LaneModel,
-  ChildContainerModel,
-  PointPortModel,
-  PortVisibility,
-  PortConstraints
-} from '@syncfusion/ej2-angular-diagrams';
+import { DiagramComponent } from '@syncfusion/ej2-angular-diagrams';
+import { NodeModel, ConnectorModel, NodeConstraints, PortVisibility, PortConstraints } from '@syncfusion/ej2-diagrams';
 import {
   WorkflowResponse,
   WorkflowSaveRequest,
   WorkflowNode,
   WorkflowEdge,
   WorkflowLane,
-  NodeStatus
+  NodeType,
+  NodeStatus,
 } from '../models/workflow.model';
+import { Department } from '../../departments/models/department.model';
 
-/** Standard 4 ports (left, top, right, bottom) for connecting nodes */
-const STANDARD_PORTS: PointPortModel[] = [
-  {
-    id: 'Port1', offset: { x: 0, y: 0.5 },
-    visibility: PortVisibility.Connect | PortVisibility.Hover,
-    constraints: PortConstraints.Default | PortConstraints.Draw
-  },
-  {
-    id: 'Port2', offset: { x: 0.5, y: 0 },
-    visibility: PortVisibility.Connect | PortVisibility.Hover,
-    constraints: PortConstraints.Default | PortConstraints.Draw
-  },
-  {
-    id: 'Port3', offset: { x: 1, y: 0.5 },
-    visibility: PortVisibility.Connect | PortVisibility.Hover,
-    constraints: PortConstraints.Default | PortConstraints.Draw
-  },
-  {
-    id: 'Port4', offset: { x: 0.5, y: 1 },
-    visibility: PortVisibility.Connect | PortVisibility.Hover,
-    constraints: PortConstraints.Default | PortConstraints.Draw
-  }
+// ─── Color palettes ───────────────────────────────────────────────────────────
+
+export const NODE_COLORS: Record<string, { fill: string; stroke: string; text: string }> = {
+  START:     { fill: '#059669', stroke: '#047857', text: '#ffffff' },
+  END:       { fill: '#DC2626', stroke: '#B91C1C', text: '#ffffff' },
+  TASK:      { fill: '#ffffff', stroke: '#E2E8F0', text: '#1E2024' },
+  CONDITION: { fill: '#D97706', stroke: '#B45309', text: '#ffffff' },
+  MERGE:     { fill: '#1e293b', stroke: '#0f172a', text: '#ffffff' },
+  ITERATOR:  { fill: '#f0fdf4', stroke: '#10b981', text: '#1E2024' },
+};
+
+export const EDGE_COLORS: Record<string, string> = {
+  SEQUENTIAL:  '#10b981',
+  CONDITIONAL: '#3b82f6',
+  ITERATIVE:   '#f43f5e',
+  MERGE:       '#8b5cf6',
+};
+
+export const LANE_PASTEL_COLORS = [
+  '#f4f7ff', '#f0fdf4', '#faf5ff', '#fffbeb', '#fef2f2', '#f0f9ff',
 ];
+
+// ─── UML Activity shape mapping ───────────────────────────────────────────────
+
+type UmlActivityShape = 'Action' | 'InitialNode' | 'FinalNode' | 'Decision' | 'JoinNode';
+
+function nodeTypeToUml(type: NodeType): UmlActivityShape {
+  switch (type) {
+    case 'START':     return 'InitialNode';
+    case 'END':       return 'FinalNode';
+    case 'CONDITION': return 'Decision';
+    case 'MERGE':     return 'JoinNode';
+    case 'TASK':
+    case 'ITERATOR':
+    default:          return 'Action';
+  }
+}
+
+function defaultSize(type: NodeType): { width: number; height: number } {
+  switch (type) {
+    case 'START':
+    case 'END':       return { width: 40,  height: 40  };
+    case 'CONDITION': return { width: 80,  height: 60  };
+    case 'MERGE':     return { width: 100, height: 20  };
+    default:          return { width: 160, height: 60  };
+  }
+}
+
+// ─── Public API ───────────────────────────────────────────────────────────────
 
 export class WorkflowMapper {
 
-  // ========================================================================
-  // LECTURA (Canvas a Base de Datos) - ENFOQUE HÍBRIDO
-  // ========================================================================
-  static toApiRequest(diagram: { saveDiagram(): string }): WorkflowSaveRequest {
-    const rawJson = diagram.saveDiagram();
-    const serialized = JSON.parse(rawJson);
+  // =========================================================================
+  // toSyncfusion — WorkflowResponse → { nodes, connectors }
+  // =========================================================================
+  static toSyncfusion(workflow: WorkflowResponse): { nodes: NodeModel[]; connectors: ConnectorModel[] } {
+    const sortedLanes = [...workflow.lanes].sort((a, b) => a.sortOrder - b.sortOrder);
 
-    const lanes: WorkflowLane[] = [];
-    const nodes: WorkflowNode[] = [];
-
-    // Anti-duplicados
-    const extractedIds = new Set<string>();
-
-    // Cubeta universal para recolectar todo antes de procesar
-    const rawNodesBucket: Array<{ nodeData: any, laneId: string }> = [];
-
-    // Mapa nodeId → laneId construido desde lane.children (fuente de verdad)
-    const nodeToLaneMap = new Map<string, string>();
-
-    // 1. RECOLECCIÓN MASIVA
-    (serialized.nodes || []).forEach((n: any) => {
-
-      if (n.shape?.type === 'SwimLane' || n.shape?.type === 'Swimlane') {
-        // A. Es el Swimlane: Extraemos los carriles
-        (n.shape?.lanes || []).forEach((lane: any, index: number) => {
-          lanes.push({
-            id: lane.id,
-            name: lane.header?.annotation?.content || lane.id,
-            role: (lane.addInfo?.role || 'officer') as 'admin' | 'officer' | 'user',
-            height: lane.height || 150,
-            color: lane.style?.fill || '#f8f9fa',
-            sortOrder: index + 1
-          });
-
-          (lane.children || []).forEach((child: any) => {
-            if (typeof child === 'string') {
-              // Syncfusion serializa a veces solo el ID; guardamos la asociación
-              nodeToLaneMap.set(child, lane.id);
-            } else if (typeof child === 'object' && child !== null) {
-              rawNodesBucket.push({ nodeData: child, laneId: lane.id });
-              if (child.id) nodeToLaneMap.set(child.id, lane.id);
-            }
-          });
-        });
-      } else {
-        // B. Nodo suelto en la raíz — usar el mapa primero, luego addInfo
-        const laneId = nodeToLaneMap.get(n.id) || n.addInfo?.laneId || '';
-        rawNodesBucket.push({ nodeData: n, laneId });
-      }
-    });
-
-    // 2. PROCESAMIENTO Y FILTRADO DE LA CUBETA
-    rawNodesBucket.forEach(item => {
-      const child = item.nodeData;
-
-      // Validamos que sea un objeto real (a veces Syncfusion deja solo el ID)
-      if (typeof child === 'object' && child !== null && child.id) {
-
-        // Filtramos basura: textos decorativos, fases y nodos que ya procesamos
-        if (child.shape?.type !== 'Text' && !child.isPhase && !extractedIds.has(child.id)) {
-          nodes.push(WorkflowMapper.extractNodeData(child, item.laneId));
-          extractedIds.add(child.id);
-        }
-      }
-    });
-
-    // 3. EXTRACCIÓN DE CONEXIONES (EDGES)
-    const edges: WorkflowEdge[] = (serialized.connectors || []).map(
-      (conn: any) => ({
-        id: conn.id,
-        sourceId: conn.sourceID || '',
-        targetId: conn.targetID || '',
-        sourcePortId: conn.sourcePortID || undefined,
-        targetPortId: conn.targetPortID || undefined,
-        relationType: (conn.addInfo?.relationType || 'SEQUENTIAL') as WorkflowEdge['relationType'],
-        label: conn.annotations?.[0]?.content || '',
-        conditionRule: conn.addInfo?.conditionRule as WorkflowEdge['conditionRule'],
-        priority: conn.addInfo?.priority || 1,
-        style: {
-          strokeColor: conn.style?.strokeColor || '#6c757d',
-          strokeWidth: conn.style?.strokeWidth || 1.5
-        }
-      })
-    );
-
-    return {
-      lanes,
-      nodes,
-      edges,
-      uiSchema: rawJson // El JSON crudo intocable para la vista
-    };
-  }
-
-  // Método auxiliar simplificado
-  private static extractNodeData(c: any, laneId: string): WorkflowNode {
-    return {
-      id: c.id,
-      laneId: laneId,
-      // HTML nodes store name in addInfo; Flow nodes use annotations[0]
-      name: c.addInfo?.name || c.annotations?.[0]?.content || c.id,
-      type: (c.addInfo?.type || 'TASK') as WorkflowNode['type'],
-      status: c.addInfo?.status as NodeStatus | undefined,
-      shape: c.shape as WorkflowNode['shape'],
-
-      offsetX: c.margin?.left || c.offsetX || 0,
-      offsetY: c.margin?.top || c.offsetY || 0,
-
-      width: c.width || 120,
-      height: c.height || 50,
-      annotations: (c.annotations || []) as Array<{ content: string }>,
-      ports: (c.ports || []) as WorkflowNode['ports'],
-      assignedRole: c.addInfo?.assignedRole,
-      assignedUserId: c.addInfo?.assignedUserId,
-      timeoutHours: c.addInfo?.timeoutHours,
-      formSchema: c.addInfo?.formSchema as WorkflowNode['formSchema'],
-      aiConfig: c.addInfo?.aiConfig as WorkflowNode['aiConfig']
-    };
-  }
-
-  static toSyncfusion(workflow: WorkflowResponse): {
-    nodes: NodeModel[];
-    connectors: ConnectorModel[];
-  } {
     const swimlane: NodeModel = {
       id: 'swimlane-main',
+      // Center the swimlane on the canvas
+      offsetX: 600,
+      offsetY: 350,
       shape: {
         type: 'SwimLane',
-        orientation: 'Vertical',
+        // Horizontal: header on left, lanes are rows (top → bottom)
+        orientation: 'Horizontal',
         header: {
-          annotation: {
-            content: workflow.name,
-            style: { bold: true, fontSize: 16, color: '#1e293b' }
+          content: workflow.name,
+          style: {
+            fontSize: 13,
+            bold: true,
+            fill: '#f1f5f9',
+            strokeColor: '#cbd5e1',
+            color: '#1e293b',
           },
-          height: 60,
-          style: { fill: 'transparent', strokeColor: 'transparent' }
+          annotation: { content: workflow.name, style: { fontSize: 13, bold: true, color: '#1e293b' } },
         },
-        lanes: workflow.lanes
-          .sort((a, b) => a.sortOrder - b.sortOrder)
-          .map(lane => WorkflowMapper.laneToSyncfusion(lane, workflow.nodes)),
-        phases: [
-          { id: 'phase1', offset: 800, header: { height: 0 } }
-        ]
-      } as unknown as NodeModel['shape'],
-      offsetX: 600,
-      offsetY: 450,
-      width: Math.max(800, workflow.lanes.length * 320),
-      height: 800
+        phases: [],
+        lanes: sortedLanes.map((lane, i) => ({
+          id: `lane_${lane.id}`,
+          header: {
+            content: lane.name,
+            style: {
+              fontSize: 11,
+              bold: true,
+              fill: '#f8fafc',
+              strokeColor: '#e2e8f0',
+              color: '#1e293b',
+            },
+            annotation: { content: lane.name, style: { fontSize: 11, bold: true, color: '#1e293b' } },
+          },
+          style: {
+            fill: lane.color ?? LANE_PASTEL_COLORS[i % LANE_PASTEL_COLORS.length],
+            strokeColor: '#e2e8f0',
+          },
+          height: lane.height ?? 150,
+          children: workflow.nodes
+            .filter(n => n.laneId === lane.id)
+            .map(n => WorkflowMapper.nodeToChild(n)),
+        })),
+      } as object,
     };
 
-    const connectors: ConnectorModel[] = workflow.edges.map(edge =>
-      WorkflowMapper.edgeToSyncfusion(edge)
-    );
+    const connectors: ConnectorModel[] = workflow.edges.map(e => WorkflowMapper.edgeToConnector(e));
 
     return { nodes: [swimlane], connectors };
   }
 
-  private static laneToSyncfusion(
-    lane: WorkflowLane,
-    allNodes: WorkflowNode[]
-  ): LaneModel {
-    const laneNodes = allNodes.filter(n => n.laneId === lane.id);
+  // =========================================================================
+  // fromSyncfusion — DiagramComponent → WorkflowSaveRequest
+  // Reads the live diagram state and serializes to domain model.
+  // =========================================================================
+  static fromSyncfusion(diagram: DiagramComponent): WorkflowSaveRequest {
+    const uiSchema = diagram.saveDiagram();
 
-    const defaultColors = ['#f4f7ff', '#f0fdf4', '#faf5ff', '#fffbeb'];
-    const idx = (lane.sortOrder || 1) % defaultColors.length;
-    const bgFill = lane.color || defaultColors[idx];
+    // Parse the saved JSON — it has { nodes, connectors, ... }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let parsed: Record<string, any>;
+    try {
+      parsed = JSON.parse(uiSchema);
+    } catch {
+      return { lanes: [], nodes: [], edges: [], uiSchema };
+    }
 
-    return {
-      id: lane.id,
-      width: 320,
-      header: {
-        annotation: {
-          content: lane.name,
-          style: { fontSize: 13, bold: true, color: '#1e293b' }
+    const lanes:   WorkflowLane[]  = [];
+    const nodes:   WorkflowNode[]  = [];
+    const edges:   WorkflowEdge[]  = [];
+
+    // ── Swimlane → lanes + child nodes ──────────────────────────────────────
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const allNodes: any[] = parsed['nodes'] ?? [];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const swimlaneNode = allNodes.find((n: any) => n.shape?.type === 'SwimLane');
+
+    if (swimlaneNode) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const swimLanes: any[] = swimlaneNode.shape?.lanes ?? [];
+
+      swimLanes.forEach((lane: Record<string, unknown>, i: number) => {
+        const rawId  = String(lane['id'] ?? '');
+        const laneId = rawId.startsWith('lane_') ? rawId.slice(5) : rawId || `lane-${i}`;
+
+        const headerContent = (lane['header'] as Record<string, unknown>)?.['content'] as string
+          ?? (lane['header'] as Record<string, unknown>)?.['annotation'] as string
+          ?? `Carril ${i + 1}`;
+
+        lanes.push({
+          id:        laneId,
+          name:      headerContent,
+          role:      'officer',
+          height:    (lane['height'] as number) ?? 150,
+          color:     ((lane['style'] as Record<string, unknown>)?.['fill'] as string) ?? '#f4f7ff',
+          sortOrder: i + 1,
+        });
+
+        const children: Record<string, unknown>[] = (lane['children'] as Record<string, unknown>[]) ?? [];
+        children.forEach(child => {
+          const info = (child['addInfo'] as Record<string, unknown>) ?? {};
+          const anns = (child['annotations'] as Array<Record<string, unknown>>) ?? [];
+
+          // Fallback: infer NodeType from UML shape name if addInfo.organiflowType is missing
+          // (Syncfusion can lose addInfo when embedding child nodes inside swimlane lanes)
+          const umlShape = String((child['shape'] as Record<string, unknown>)?.['shape'] ?? '');
+          const inferredType = WorkflowMapper.umlShapeToNodeType(umlShape);
+          const resolvedType = ((info['organiflowType'] as string) || inferredType) as NodeType;
+
+          nodes.push({
+            id:             child['id'] as string,
+            laneId:         (info['laneId'] as string) ?? laneId,
+            name:           (anns[0]?.['content'] as string) ?? '',
+            type:           resolvedType,
+            status:         (info['status'] as NodeStatus) ?? undefined,
+            shape:          { type: String((child['shape'] as Record<string, unknown>)?.['shape'] ?? ''), shape: '' },
+            offsetX:        (child['offsetX'] as number) ?? 0,
+            offsetY:        (child['offsetY'] as number) ?? 0,
+            width:          (child['width'] as number)   ?? 160,
+            height:         (child['height'] as number)  ?? 60,
+            annotations:    [],
+            ports:          [],
+            departmentId:   info['departmentId'] as string | undefined,
+            assignedUserId: info['assignedUserId'] as string | undefined,
+            timeoutHours:   info['timeoutHours'] as number | undefined,
+            formSchema:     info['formSchema'] as WorkflowNode['formSchema'],
+            aiConfig:       info['aiConfig'] as WorkflowNode['aiConfig'],
+          });
+        });
+      });
+    }
+
+    // ── Standalone nodes (dropped outside swimlane lanes) ────────────────────
+    // Syncfusion places nodes added via diagram.add() in the top-level nodes
+    // array, NOT inside swimlane.shape.lanes[i].children. We must capture them
+    // too so that START/END/TASK nodes are always sent to the backend.
+    const capturedIds = new Set(nodes.map(n => n.id));
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    allNodes.forEach((node: any) => {
+      if ((node['shape'] as Record<string, unknown>)?.['type'] === 'SwimLane') return;
+      if (capturedIds.has(node['id'] as string)) return;
+
+      const info = (node['addInfo'] as Record<string, unknown>) ?? {};
+      const anns = (node['annotations'] as Array<Record<string, unknown>>) ?? [];
+      const umlShape = String((node['shape'] as Record<string, unknown>)?.['shape'] ?? '');
+      const inferredType = WorkflowMapper.umlShapeToNodeType(umlShape);
+      const resolvedType = ((info['organiflowType'] as string) || inferredType) as NodeType;
+
+      nodes.push({
+        id:             node['id'] as string,
+        laneId:         (info['laneId'] as string) ?? '',
+        name:           (anns[0]?.['content'] as string) ?? '',
+        type:           resolvedType,
+        status:         (info['status'] as NodeStatus) ?? undefined,
+        shape:          { type: String((node['shape'] as Record<string, unknown>)?.['shape'] ?? ''), shape: '' },
+        offsetX:        (node['offsetX'] as number) ?? 0,
+        offsetY:        (node['offsetY'] as number) ?? 0,
+        width:          (node['width'] as number)   ?? 160,
+        height:         (node['height'] as number)  ?? 60,
+        annotations:    [],
+        ports:          [],
+        departmentId:   info['departmentId'] as string | undefined,
+        assignedUserId: info['assignedUserId'] as string | undefined,
+        timeoutHours:   info['timeoutHours'] as number | undefined,
+        formSchema:     info['formSchema'] as WorkflowNode['formSchema'],
+        aiConfig:       info['aiConfig'] as WorkflowNode['aiConfig'],
+      });
+    });
+
+    // ── Connectors → edges ───────────────────────────────────────────────────
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const allConns: any[] = parsed['connectors'] ?? [];
+    allConns.forEach(conn => {
+      if (!conn['sourceID'] || !conn['targetID']) return;
+      const info = (conn['addInfo'] as Record<string, unknown>) ?? {};
+      const anns = (conn['annotations'] as Array<Record<string, unknown>>) ?? [];
+
+      edges.push({
+        id:            conn['id'] as string,
+        sourceId:      conn['sourceID'] as string,
+        targetId:      conn['targetID'] as string,
+        sourcePortId:  conn['sourcePortID'] as string | undefined,
+        targetPortId:  conn['targetPortID'] as string | undefined,
+        relationType:  ((info['relationType'] as string) ?? 'SEQUENTIAL') as WorkflowEdge['relationType'],
+        label:         (anns[0]?.['content'] as string) ?? '',
+        conditionRule: info['conditionRule'] as WorkflowEdge['conditionRule'],
+        priority:      (info['priority'] as number) ?? 1,
+        style: {
+          strokeColor: (conn['style']?.['strokeColor'] as string) ?? '#10b981',
+          strokeWidth: (conn['style']?.['strokeWidth'] as number) ?? 2,
         },
-        height: 50,
-        style: { fill: bgFill, strokeColor: 'transparent' }
-      },
-      style: {
-        fill: bgFill,
-        strokeColor: 'transparent'
-      },
-      children: laneNodes.map(n => WorkflowMapper.nodeToSyncfusion(n))
-    } as LaneModel;
+      });
+    });
+
+    return { lanes, nodes, edges, uiSchema };
   }
 
-  private static nodeToSyncfusion(node: WorkflowNode): ChildContainerModel {
-    const style = WorkflowMapper.getNodeStyle(node.type);
-    const { shape, width, height } = WorkflowMapper.getShapeConfig(node.type, node.width, node.height);
-    const isCardType = node.type === 'TASK' || node.type === 'ITERATOR';
-
-    let annotations: unknown[] = [];
-    if (isCardType) {
-      const prefix = node.type === 'ITERATOR' ? '↻  ' : '';
-      const subtitle = node.formSchema?.fields?.length
-        ? `Formulario · ${node.formSchema.fields.length} campos`
-        : node.assignedRole || 'Sin configurar';
-      annotations = [
-        { content: prefix + (node.name || 'Sin título'), offset: { x: 0.5, y: 0.38 }, style: { fontSize: 12, bold: true, color: '#1E2024' } },
-        { content: subtitle, offset: { x: 0.5, y: 0.68 }, style: { fontSize: 10, color: '#8B95A5' } }
-      ];
-    } else {
-      const annotationColor = node.type === 'MERGE' ? 'transparent' : (style['color'] || '#fff');
-      const annotationOffset = node.type === 'MERGE' ? { x: 0.5, y: 1.5 } : { x: 0.5, y: 0.5 };
-      annotations = node.annotations?.length
-        ? node.annotations.map(a => ({ ...a, offset: annotationOffset, style: { fontSize: 11, color: annotationColor, bold: true } }))
-        : [{ content: node.name, offset: annotationOffset, style: { fontSize: 11, color: annotationColor, bold: true } }];
-    }
-
-    return {
-      id: node.id,
-      shape,
-      width,
-      height,
-      annotations,
-      ports: STANDARD_PORTS,
-      offsetX: node.offsetX,
-      offsetY: node.offsetY,
-      margin: { left: node.offsetX || 15, top: node.offsetY || 15 },
-      style: { ...style, strokeWidth: isCardType ? 1.5 : 2 },
-      shadow: { angle: 135, distance: 6, opacity: 0.08, color: '#000000' },
-      addInfo: {
-        type: node.type,
-        laneId: node.laneId,
-        assignedRole: node.assignedRole,
-        assignedUserId: node.assignedUserId,
-        timeoutHours: node.timeoutHours,
-        formSchema: node.formSchema,
-        aiConfig: node.aiConfig,
-        name: node.name || 'Sin título',
-        status: node.status || 'PENDING',
-      }
-    } as unknown as ChildContainerModel;
+  // =========================================================================
+  // departmentsToLanes — Department[] → WorkflowLane[]
+  // =========================================================================
+  static departmentsToLanes(departments: Department[]): WorkflowLane[] {
+    return departments
+      .filter(d => d.isActive)
+      .map((d, i) => ({
+        id:        d.id,
+        name:      d.name,
+        role:      'officer' as const,
+        height:    150,
+        color:     LANE_PASTEL_COLORS[i % LANE_PASTEL_COLORS.length],
+        sortOrder: i + 1,
+      }));
   }
 
-  private static getShapeConfig(
-    type: string,
-    nodeWidth?: number,
-    nodeHeight?: number
-  ): { shape: NodeModel['shape']; width: number; height: number } {
-    switch (type) {
-      case 'TASK':
-      case 'ITERATOR':
-        return { shape: { type: 'Basic', shape: 'Rectangle', cornerRadius: 8 } as NodeModel['shape'], width: nodeWidth || 180, height: nodeHeight || 70 };
-      case 'CONDITION':
-        return { shape: { type: 'Flow', shape: 'Decision' } as NodeModel['shape'], width: nodeWidth || 100, height: nodeHeight || 80 };
-      case 'MERGE':
-        return { shape: { type: 'Flow', shape: 'Process' } as NodeModel['shape'], width: nodeWidth || 12, height: nodeHeight || 80 };
-      case 'START':
-      case 'END':
-        return { shape: { type: 'Flow', shape: 'Terminator' } as NodeModel['shape'], width: nodeWidth || 100, height: nodeHeight || 45 };
-      default:
-        return { shape: { type: 'HTML' } as NodeModel['shape'], width: nodeWidth || 220, height: nodeHeight || 96 };
-    }
-  }
-
-  private static edgeToSyncfusion(edge: WorkflowEdge): ConnectorModel {
-    const strokeColor = edge.style?.strokeColor || WorkflowMapper.getEdgeColor(edge.relationType);
-    return {
-      id: edge.id,
-      sourceID: edge.sourceId,
-      targetID: edge.targetId,
-      sourcePortID: edge.sourcePortId || '',
-      targetPortID: edge.targetPortId || '',
-      type: 'Orthogonal',
-      cornerRadius: 12,
-      annotations: edge.label
-        ? [{
-          content: edge.label,
-          style: { fontSize: 11, fill: 'transparent', color: '#64748B' },
-          alignment: 'After'
-        }]
-        : [],
-      style: {
-        strokeColor,
-        strokeWidth: edge.style?.strokeWidth || 2,
-        strokeDashArray: edge.relationType === 'CONDITIONAL' ? '6 3' : ''
-      },
-      targetDecorator: {
-        shape: 'Arrow',
-        width: 10,
-        height: 8,
-        style: { fill: strokeColor, strokeColor }
-      },
-      addInfo: {
-        relationType: edge.relationType,
-        conditionRule: edge.conditionRule,
-        priority: edge.priority || 1
-      }
-    };
-  }
-
-  static getNodeStyle(type: string): Record<string, string> {
-    const styles: Record<string, Record<string, string>> = {
-      START:     { fill: '#059669', strokeColor: '#047857', color: '#ffffff' },
-      END:       { fill: '#DC2626', strokeColor: '#B91C1C', color: '#ffffff' },
-      TASK:      { fill: '#ffffff', strokeColor: '#E2E8F0', color: '#1E2024' },
-      CONDITION: { fill: '#D97706', strokeColor: '#B45309', color: '#ffffff' },
-      MERGE:     { fill: '#1e293b', strokeColor: '#0f172a', color: '#ffffff' },
-      ITERATOR:  { fill: '#f0fdf4', strokeColor: '#10b981', color: '#1E2024' },
-    };
-    return styles[type] || styles['TASK'];
+  // =========================================================================
+  // getNodeStyle — shared with SymbolPaletteComponent
+  // =========================================================================
+  static getNodeStyle(type: string): { fill: string; stroke: string; text: string } {
+    return NODE_COLORS[type] ?? NODE_COLORS['TASK'];
   }
 
   static getEdgeColor(relationType: string): string {
-    const colors: Record<string, string> = {
-      SEQUENTIAL: '#10b981', // emerald-500
-      CONDITIONAL: '#3b82f6', // blue-500
-      ITERATIVE: '#f43f5e', // rose-500
-      MERGE: '#8b5cf6' // violet-500
+    return EDGE_COLORS[relationType] ?? '#94A3B8';
+  }
+
+  // =========================================================================
+  // umlShapeToNodeType — reverse mapping: UML Activity shape → NodeType
+  // Used as fallback when addInfo is missing from serialized swimlane children
+  // =========================================================================
+  static umlShapeToNodeType(umlShape: string): NodeType {
+    switch (umlShape) {
+      case 'InitialNode':  return 'START';
+      case 'FinalNode':    return 'END';
+      case 'Decision': return 'CONDITION';
+      case 'JoinNode':     return 'MERGE';
+      case 'Action':
+      default:             return 'TASK';
+    }
+  }
+
+  // =========================================================================
+  // isJointJsSchema — guard for legacy JointJS uiSchema in MongoDB
+  // Returns true if the JSON was saved by JointJS (has 'cells' root array).
+  // =========================================================================
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  static isJointJsSchema(parsed: any): boolean {
+    return Array.isArray(parsed?.cells);
+  }
+
+  // ─── Private helpers ────────────────────────────────────────────────────────
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private static nodeToChild(node: WorkflowNode): Record<string, any> {
+    const colors = NODE_COLORS[node.type] ?? NODE_COLORS['TASK'];
+    const size   = defaultSize(node.type);
+
+    return {
+      id:      node.id,
+      offsetX: node.offsetX || 120,
+      offsetY: node.offsetY || 80,
+      width:   node.width   || size.width,
+      height:  node.height  || size.height,
+      // Habilitar: Select | Drag | Rotate | Resize | InConnect | OutConnect
+      constraints:
+        NodeConstraints.Default |
+        NodeConstraints.InConnect |
+        NodeConstraints.OutConnect,
+      shape: {
+        type:  'UmlActivity',
+        shape: nodeTypeToUml(node.type),
+      },
+      style: {
+        fill:        colors.fill,
+        strokeColor: colors.stroke,
+        strokeWidth: 2,
+      },
+      annotations: node.name
+        ? [{
+            content: node.type === 'ITERATOR' ? `↻  ${node.name}` : node.name,
+            style:   { color: colors.text, fontSize: 11, bold: true },
+          }]
+        : [],
+      // Puertos de conexión visibles al hacer hover
+      // PortConstraints.Draw es OBLIGATORIO para poder arrastrar y crear conectores
+      ports: [
+        { id: 'top',    offset: { x: 0.5, y: 0 },   visibility: PortVisibility.Hover | PortVisibility.Connect, constraints: PortConstraints.Default | PortConstraints.Draw, shape: 'Circle', width: 8, height: 8, style: { fill: '#3b82f6', strokeColor: '#1d4ed8' } },
+        { id: 'right',  offset: { x: 1,   y: 0.5 }, visibility: PortVisibility.Hover | PortVisibility.Connect, constraints: PortConstraints.Default | PortConstraints.Draw, shape: 'Circle', width: 8, height: 8, style: { fill: '#3b82f6', strokeColor: '#1d4ed8' } },
+        { id: 'bottom', offset: { x: 0.5, y: 1 },   visibility: PortVisibility.Hover | PortVisibility.Connect, constraints: PortConstraints.Default | PortConstraints.Draw, shape: 'Circle', width: 8, height: 8, style: { fill: '#3b82f6', strokeColor: '#1d4ed8' } },
+        { id: 'left',   offset: { x: 0,   y: 0.5 }, visibility: PortVisibility.Hover | PortVisibility.Connect, constraints: PortConstraints.Default | PortConstraints.Draw, shape: 'Circle', width: 8, height: 8, style: { fill: '#3b82f6', strokeColor: '#1d4ed8' } },
+      ],
+      addInfo: {
+        organiflowType: node.type,
+        laneId:         node.laneId,
+        name:           node.name,
+        departmentId:   node.departmentId,
+        assignedUserId: node.assignedUserId,
+        timeoutHours:   node.timeoutHours,
+        formSchema:     node.formSchema,
+        aiConfig:       node.aiConfig,
+        status:         node.status ?? 'PENDING',
+      },
     };
-    return colors[relationType] || '#94A3B8';
+  }
+
+  private static edgeToConnector(edge: WorkflowEdge): ConnectorModel {
+    const isDashed = edge.relationType === 'CONDITIONAL' || edge.relationType === 'ITERATIVE';
+    const color    = EDGE_COLORS[edge.relationType] ?? '#10b981';
+
+    return {
+      id:          edge.id,
+      sourceID:    edge.sourceId,
+      targetID:    edge.targetId,
+      sourcePortID: edge.sourcePortId,
+      targetPortID: edge.targetPortId,
+      type:        'Orthogonal',
+      style: {
+        strokeColor:     color,
+        strokeWidth:     2,
+        strokeDashArray: isDashed ? '6 3' : undefined,
+      },
+      targetDecorator: {
+        shape: 'Arrow',
+        style: { fill: color, strokeColor: color },
+      },
+      annotations: edge.label
+        ? [{ content: edge.label, style: { fontSize: 10, color: '#64748B' } }]
+        : [],
+      addInfo: {
+        relationType:  edge.relationType,
+        conditionRule: edge.conditionRule,
+        priority:      edge.priority ?? 1,
+      },
+    };
   }
 }

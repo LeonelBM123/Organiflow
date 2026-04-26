@@ -79,6 +79,9 @@ public class DiagramWebSocketController {
     public void changed(@DestinationVariable String workflowId,
                         @Payload DiagramChangeRequest request,
                         Principal principal) {
+        log.info("CHANGED recibido: workflowId={}, uiSchema.length={}",
+                workflowId, request.uiSchema() != null ? request.uiSchema().length() : 0);
+
         PrincipalData data = extractPrincipalData(principal);
         if (data == null) return;
 
@@ -87,7 +90,12 @@ public class DiagramWebSocketController {
             return;
         }
 
-        collaborationService.persistUiSchema(workflowId, data.tenantId(), request.uiSchema());
+        try {
+            collaborationService.persistUiSchema(workflowId, data.tenantId(), request.uiSchema());
+        } catch (Exception e) {
+            log.error("Error en persistUiSchema — aun así se hace broadcast: {}", e.getMessage());
+        }
+
         collaborationService.updateCursor(workflowId, data.userId(), null, null, null);
 
         DiagramEvent event = DiagramEvent.builder()
@@ -101,6 +109,7 @@ public class DiagramWebSocketController {
                 .timestamp(LocalDateTime.now())
                 .build();
 
+        log.info("DIAGRAM_CHANGED broadcast a topic: workflow.{}.{}", data.tenantId(), workflowId);
         collaborationService.broadcastEvent(data.tenantId(), workflowId, event);
     }
 
@@ -120,6 +129,7 @@ public class DiagramWebSocketController {
                 .tenantId(data.tenantId())
                 .userId(data.userId())
                 .userName(data.userName())
+                .userColor(resolveUserColor(workflowId, data.tenantId(), data.userId()))
                 .payload(new CursorPayload(request.x(), request.y(), request.selectedNodeId()))
                 .timestamp(LocalDateTime.now())
                 .build();

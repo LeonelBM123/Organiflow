@@ -1,0 +1,40 @@
+<div class="panel-header">
+  <h3>Reglas de Condición</h3>
+  <button type="button" class="close-btn" (click)="close.emit()">
+    <i class="fa-solid fa-xmark"></i>
+  </button>
+</div>
+
+<div class="panel-content" *ngIf="connector">
+  <form [formGroup]="form" (ngSubmit)="onSave()">
+    
+    <div class="form-group">
+      <label>Campo a Evaluar</label>
+      <input type="text" class="form-control" formControlName="field" placeholder="ej: aprobado, monto_total" />
+      <small>Escribe el nombre de la variable configurada en un formulario previo.</small>
+    </div>
+
+    <div class="form-group">
+      <label>Condición</label>
+      <select class="form-control" formControlName="operator">
+        <option value="==">Es Igual A (==)</option>
+        <option value="!=">Es Diferente De (!=)</option>
+        <option value=">">Es Mayor A (>)</option>
+        <option value="<">Es Menor A (<)</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label>Valor Esperado</label>
+      <input type="text" class="form-control" formControlName="value" placeholder="ej: true, 5000, rechazado" />
+      <small>El valor que activará este camino.</small>
+    </div>
+
+    <div class="actions">
+      <button type="submit" class="btn btn-primary" [disabled]="form.invalid">
+        <i class="fa-solid fa-save"></i> Guardar Regla
+      </button>
+    </div>
+
+  </form>
+</div>

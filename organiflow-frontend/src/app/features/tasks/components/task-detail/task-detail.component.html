@@ -29,10 +29,10 @@
         }
       </div>
       <div class="meta-grid">
-        @if (task()!.assignedRole) {
+        @if (task()!.departmentId) {
           <div class="meta-item">
-            <span class="meta-label">Rol</span>
-            <span class="meta-value">{{ task()!.assignedRole }}</span>
+            <span class="meta-label">Departamento</span>
+            <span class="meta-value">{{ task()!.departmentId }}</span>
           </div>
         }
         @if (task()!.assignedUserId) {

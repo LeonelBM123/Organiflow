@@ -522,3 +522,142 @@ kbd {
     margin-right: 12px !important;
 }
 
+
+/* ============================================================
+   SYNCFUSION DIAGRAM — DARK MODE OVERRIDES
+   Syncfusion inyecta colores hardcoded en el canvas SVG.
+   Estos overrides globales los reemplazan cuando .dark está activo.
+   ============================================================ */
+.dark {
+
+  /* Fondo principal del canvas */
+  #organiflow-diagram {
+    background: #0F172A !important;
+
+    .e-diagram-background {
+      background: #0F172A !important;
+      fill: #0F172A !important;
+    }
+
+    /* Grid dots (SVG) */
+    .e-grid-dot,
+    .e-line {
+      fill: rgba(148, 163, 184, 0.12) !important;
+      stroke: rgba(148, 163, 184, 0.12) !important;
+    }
+
+    /* ── Swimlane ──────────────────────────────── */
+    .e-swimlane {
+      fill: #1E293B !important;
+      stroke: #334155 !important;
+    }
+
+    /* Header del swimlane (título del workflow) */
+    .e-swimlane-header {
+      fill: #1e293b !important;
+      stroke: #334155 !important;
+    }
+
+    /* Lane headers (nombre del departamento) */
+    .e-lane-header, .e-header {
+      fill: #1e293b !important;
+      stroke: #334155 !important;
+    }
+
+    /* Texto dentro del swimlane header */
+    .e-swimlane-header text,
+    .e-lane-header text,
+    .e-header text {
+      fill: #CBD5E1 !important;
+    }
+
+    /* Dividers / borders internos del swimlane */
+    .e-swimlane-border,
+    .e-lane-border {
+      stroke: #334155 !important;
+    }
+
+    /* ── Nodos ──────────────────────────────────── */
+    /* Nodo genérico — fondo y borde */
+    .e-node {
+      fill: #1E293B !important;
+      stroke: #334155 !important;
+    }
+
+    /* Texto de anotaciones en nodos */
+    .e-annotation-wrapper text,
+    .e-node text {
+      fill: #F1F5F9 !important;
+    }
+
+    /* ── Conectores ─────────────────────────────── */
+    .e-connector path,
+    .e-connector line {
+      stroke: #10b981 !important;
+    }
+
+    .e-connector-path {
+      stroke: #10b981 !important;
+    }
+
+    /* Punta de flecha */
+    .e-connector polygon,
+    .e-connector .e-arrow {
+      fill: #10b981 !important;
+      stroke: #10b981 !important;
+    }
+
+    /* Etiqueta de conector */
+    .e-connector text {
+      fill: #94A3B8 !important;
+    }
+
+    /* ── Selección / handlers ───────────────────── */
+    .e-diagram-selected-region {
+      fill: rgba(59, 130, 246, 0.08) !important;
+      stroke: #3B82F6 !important;
+    }
+
+    .e-handler {
+      fill: #3B82F6 !important;
+      stroke: #1d4ed8 !important;
+    }
+
+    /* ── Resize handles ────────────────────────── */
+    .e-resize-handle {
+      fill: #3B82F6 !important;
+      stroke: #1d4ed8 !important;
+    }
+
+    /* ── Puertos de conexión ───────────────────── */
+    .e-port circle {
+      fill: #3B82F6 !important;
+      stroke: #1d4ed8 !important;
+    }
+
+    /* ── Tooltip / label flotante ──────────────── */
+    .e-tooltip-wrap .e-tip-content {
+      background: #1E293B !important;
+      color: #F1F5F9 !important;
+      border: 1px solid #334155 !important;
+    }
+  }
+
+  /* Contenedor del canvas (wrapper Angular) */
+  .e-diagram-container,
+  .e-control.e-diagram {
+    background: #0F172A !important;
+  }
+
+  /* Barra de herramientas de Syncfusion (si se usa) */
+  .e-diagram-toolbar {
+    background: #1E293B !important;
+    border-color: #334155 !important;
+
+    .e-btn {
+      color: #94A3B8 !important;
+
+      &:hover { background: #334155 !important; }
+    }
+  }
+}

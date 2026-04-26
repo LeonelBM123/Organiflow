@@ -1,21 +1,59 @@
-<aside class="palette-sidebar" aria-label="Paleta de elementos del diagrama">
+<aside class="palette-sidebar" aria-label="Elementos del diagrama">
+
   <div class="palette-header">
-    <span class="palette-title">Herramientas</span>
+    <span class="palette-title">Elementos</span>
   </div>
 
-  <ejs-symbolpalette
-    id="organiflow-palette"
-    width="100%"
-    height="calc(100% - 44px)"
-    [expandMode]="expandMode"
-    [palettes]="palettes()"
-    [symbolHeight]="symbolHeight"
-    [symbolWidth]="symbolWidth"
-    [symbolMargin]="symbolMargin"
-    [getSymbolInfo]="getSymbolInfo"
-    [getNodeDefaults]="getNodeDefaults"
-    [getConnectorDefaults]="getConnectorDefaults"
-    role="list"
-    aria-label="Nodos, carriles y conectores disponibles para el diagrama"
-  ></ejs-symbolpalette>
+  <div class="palette-scroll">
+    @for (group of groups(); track group.id) {
+      <div class="palette-group">
+
+        <button
+          class="group-header"
+          type="button"
+          [attr.aria-expanded]="group.expanded"
+          [attr.aria-controls]="'group-' + group.id"
+          (click)="toggleGroup(group.id)">
+          <span class="group-title">{{ group.title }}</span>
+          <svg class="chevron" [class.expanded]="group.expanded"
+               width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
+            <path d="M2 4 L6 8 L10 4" stroke="currentColor" stroke-width="1.5"
+                  fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+
+        @if (group.expanded) {
+          <div class="group-items" [id]="'group-' + group.id" role="list">
+            @for (item of group.items; track item.id) {
+              <div
+                class="palette-item"
+                role="listitem"
+                draggable="true"
+                tabindex="0"
+                [attr.aria-label]="item.tooltip"
+                [title]="item.tooltip"
+                (dragstart)="onDragStart($event, item)"
+                (keydown.enter)="onKeyActivate($event, item)"
+                (keydown.space)="onKeyActivate($event, item)">
+
+                <div class="item-icon" aria-hidden="true">
+                  <svg [attr.viewBox]="item.svgViewBox" width="100%" height="100%">
+                    <path
+                      [attr.d]="item.svgPath"
+                      [attr.fill]="item.fill"
+                      [attr.stroke]="item.stroke"
+                      stroke-width="2"/>
+                  </svg>
+                </div>
+
+                <span class="item-label">{{ item.label }}</span>
+              </div>
+            }
+          </div>
+        }
+
+      </div>
+    }
+  </div>
+
 </aside>

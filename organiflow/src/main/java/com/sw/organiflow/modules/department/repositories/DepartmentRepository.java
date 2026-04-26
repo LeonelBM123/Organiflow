@@ -13,4 +13,6 @@ public interface DepartmentRepository extends MongoRepository<Department, String
     Optional<Department> findByIdAndTenantId(String id, String tenantId);
 
     boolean existsByTenantIdAndName(String tenantId, String name);
+
+    List<Department> findByTenantIdAndMemberUserIdsContaining(String tenantId, String userId);
 }

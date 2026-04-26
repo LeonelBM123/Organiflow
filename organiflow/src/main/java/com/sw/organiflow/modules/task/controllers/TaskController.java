@@ -19,25 +19,25 @@ public class TaskController {
     private final TaskService taskService;
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('admin', 'officer')")
+    @PreAuthorize("hasAnyRole('admin', 'officer', 'user')")
     public ResponseEntity<List<TaskResponse>> findMine() {
         return ResponseEntity.ok(taskService.findMine());
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('admin', 'officer')")
+    @PreAuthorize("hasAnyRole('admin', 'officer', 'user')")
     public ResponseEntity<TaskResponse> findById(@PathVariable String id) {
         return ResponseEntity.ok(taskService.findById(id));
     }
 
     @PostMapping("/{id}/start")
-    @PreAuthorize("hasRole('officer')")
+    @PreAuthorize("hasAnyRole('officer', 'user')")
     public ResponseEntity<TaskResponse> start(@PathVariable String id) {
         return ResponseEntity.ok(taskService.start(id));
     }
 
     @PostMapping("/{id}/complete")
-    @PreAuthorize("hasRole('officer')")
+    @PreAuthorize("hasAnyRole('officer', 'user')")
     public ResponseEntity<TaskResponse> complete(
             @PathVariable String id,
             @RequestBody TaskCompleteRequest request

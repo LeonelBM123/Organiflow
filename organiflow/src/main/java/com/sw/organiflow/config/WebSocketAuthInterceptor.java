@@ -55,8 +55,11 @@ public class WebSocketAuthInterceptor implements ChannelInterceptor {
                 "email", email
         );
 
+        // Use userId (not email) as the principal name so that
+        // SimpMessagingTemplate.convertAndSendToUser(userId, ...) resolves
+        // the correct STOMP session for user-specific destinations like /user/queue/sync.
         UsernamePasswordAuthenticationToken authentication =
-                new UsernamePasswordAuthenticationToken(email, null, List.of());
+                new UsernamePasswordAuthenticationToken(userId, null, List.of());
         authentication.setDetails(details);
 
         accessor.setUser(authentication);

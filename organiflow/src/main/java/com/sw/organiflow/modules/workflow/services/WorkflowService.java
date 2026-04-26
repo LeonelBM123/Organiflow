@@ -92,6 +92,14 @@ public class WorkflowService {
         workflow.setNodes(request.getNodes());
         workflow.setEdges(request.getEdges());
         workflow.setUiSchema(request.getUiSchema());
+
+        // DEBUG: log each node id + type to diagnose START detection issues
+        if (request.getNodes() != null) {
+            request.getNodes().forEach(n ->
+                log.info("[saveGraph] node id={} type={} name={}", n.getId(), n.getType(), n.getName())
+            );
+        }
+
         log.info("Grafo guardado — workflow: {}, nodos: {}, edges: {}",
                 id,
                 request.getNodes() != null ? request.getNodes().size() : 0,
@@ -176,24 +184,48 @@ public class WorkflowService {
 
     private void validateForPublish(Workflow workflow) {
         if (workflow.getNodes() == null || workflow.getNodes().isEmpty()) {
+            // No nodes at all: use uiSchema string-search as last resort
+            if (workflow.getUiSchema() != null && !workflow.getUiSchema().isEmpty()) {
+                validateFromUiSchema(workflow.getUiSchema());
+                return;
+            }
             throw new RuntimeException("El workflow no tiene nodos");
         }
 
         boolean hasStart = workflow.getNodes().stream()
-                .anyMatch(n -> n.getType() != null &&
-                        n.getType().name().equals("START"));
+                .anyMatch(n -> n.getType() == com.sw.organiflow.shared.enums.NodeType.START);
         if (!hasStart) {
-            throw new RuntimeException("El workflow debe tener al menos un nodo START");
+            // Nodes exist but none has type=START → data integrity issue.
+            // Do NOT fall back to uiSchema to avoid publishing a broken workflow.
+            throw new RuntimeException(
+                    "El workflow debe tener al menos un nodo START. " +
+                    "Revisa el diagrama, guarda los cambios y vuelve a publicar.");
         }
 
         boolean hasEnd = workflow.getNodes().stream()
-                .anyMatch(n -> n.getType() != null &&
-                        n.getType().name().equals("END"));
+                .anyMatch(n -> n.getType() == com.sw.organiflow.shared.enums.NodeType.END);
         if (!hasEnd) {
             throw new RuntimeException("El workflow debe tener al menos un nodo END");
         }
 
         if (workflow.getEdges() == null || workflow.getEdges().isEmpty()) {
+            throw new RuntimeException("El workflow no tiene conexiones entre nodos");
+        }
+    }
+
+    private boolean uiSchemaHasShape(String uiSchema, String shapeName) {
+        return uiSchema.contains("\"shape\":\"" + shapeName + "\"") ||
+               uiSchema.contains("\"shape\": \"" + shapeName + "\"");
+    }
+
+    private void validateFromUiSchema(String uiSchema) {
+        if (!uiSchemaHasShape(uiSchema, "InitialNode")) {
+            throw new RuntimeException("El workflow debe tener al menos un nodo START");
+        }
+        if (!uiSchemaHasShape(uiSchema, "FinalNode")) {
+            throw new RuntimeException("El workflow debe tener al menos un nodo END");
+        }
+        if (!uiSchema.contains("\"sourceID\":") && !uiSchema.contains("\"sourceID\" :")) {
             throw new RuntimeException("El workflow no tiene conexiones entre nodos");
         }
     }

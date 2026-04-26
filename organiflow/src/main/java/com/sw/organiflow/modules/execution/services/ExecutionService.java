@@ -74,7 +74,7 @@ public class ExecutionService {
                 .build();
         executionNodes.add(startExNode);
 
-        List<WorkflowNode> nextNodes = findNextNodes(workflow, startNode.getId());
+        List<WorkflowNode> nextNodes = findNextNodes(workflow, startNode.getId(), new java.util.HashMap<>());
         for (WorkflowNode next : nextNodes) {
             ExecutionNode pending = ExecutionNode.builder()
                     .nodeId(next.getId())
@@ -175,6 +175,10 @@ public class ExecutionService {
         execNode.setCompletedAt(Instant.now());
         execution.getCurrentNodeIds().remove(nodeId);
 
+        if (formData != null && !formData.isEmpty()) {
+            execution.getGlobalVariables().putAll(formData);
+        }
+
         WorkflowNode workflowNode = findWorkflowNode(workflow, nodeId);
         List<WorkflowNode> newTaskNodes = new ArrayList<>();
 
@@ -184,13 +188,23 @@ public class ExecutionService {
                 execution.setCompletedAt(Instant.now());
             }
         } else {
-            List<WorkflowNode> nextNodes = findNextNodes(workflow, nodeId);
-            for (WorkflowNode next : nextNodes) {
-                Optional<ExecutionNode> existing = execution.getExecutionNodes().stream()
-                        .filter(n -> n.getNodeId().equals(next.getId()))
-                        .findFirst();
+            List<WorkflowNode> initialNextNodes = findNextNodes(workflow, nodeId, execution.getGlobalVariables());
+            java.util.Queue<WorkflowNode> nodeQueue = new java.util.LinkedList<>(initialNextNodes);
+            
+            while (!nodeQueue.isEmpty()) {
+                WorkflowNode next = nodeQueue.poll();
+                
+                if (next.getType() == NodeType.MERGE) {
+                    if (!isMergeReady(workflow, execution, next.getId())) {
+                        continue; // Wait until all incoming edges are done
+                    }
+                }
 
-                if (existing.isEmpty()) {
+                boolean hasActiveExisting = execution.getExecutionNodes().stream()
+                        .anyMatch(n -> n.getNodeId().equals(next.getId()) &&
+                                (n.getStatus() == TaskStatus.PENDING || n.getStatus() == TaskStatus.IN_PROGRESS));
+
+                if (!hasActiveExisting) {
                     ExecutionNode newNode = ExecutionNode.builder()
                             .nodeId(next.getId())
                             .nodeName(next.getName())
@@ -210,6 +224,24 @@ public class ExecutionService {
                             execution.setStatus(ExecutionStatus.COMPLETED);
                             execution.setCompletedAt(Instant.now());
                         }
+                    } else if (next.getType() == NodeType.MERGE) {
+                        newNode.setStatus(TaskStatus.DONE);
+                        newNode.setCompletedAt(Instant.now());
+                        execution.getCurrentNodeIds().remove(next.getId());
+
+                        List<WorkflowNode> postMergeNodes = findNextNodes(workflow, next.getId(), execution.getGlobalVariables());
+                        nodeQueue.addAll(postMergeNodes);
+                    } else if (next.getType() == NodeType.CONDITION) {
+                        // CONDITION es un gateway automático: se evalúa con globalVariables
+                        // sin intervención humana, igual que MERGE.
+                        newNode.setStatus(TaskStatus.DONE);
+                        newNode.setCompletedAt(Instant.now());
+                        execution.getCurrentNodeIds().remove(next.getId());
+
+                        // findNextNodes llama a evaluateCondition internamente:
+                        // solo retorna los nodos cuyos edges pasan la regla configurada.
+                        List<WorkflowNode> postConditionNodes = findNextNodes(workflow, next.getId(), execution.getGlobalVariables());
+                        nodeQueue.addAll(postConditionNodes);
                     } else {
                         newTaskNodes.add(next);
                     }
@@ -227,23 +259,80 @@ public class ExecutionService {
         return ExecutionResponse.from(saved);
     }
 
+    private boolean isMergeReady(Workflow workflow, Execution execution, String mergeNodeId) {
+        // Obtenemos los sub-procesos anteriores que apuntan al Merge
+        List<String> incomingNodeIds = workflow.getEdges().stream()
+                .filter(e -> e.getTargetId().equals(mergeNodeId))
+                .map(WorkflowEdge::getSourceId)
+                .toList();
+
+        // Para AND-join simple: verificamos que todos los sourceIds tengan al menos una tarea en estado DONE.
+        // Ojo: Si la lógica de negocio descarta caminos exclusivos, esto podría esperar infinitamente. 
+        // Asumiendo un entorno donde los merges tienen incoming edges de caminos seguros o completados.
+        for (String inNode : incomingNodeIds) {
+            boolean isDone = execution.getExecutionNodes().stream()
+                    .anyMatch(n -> n.getNodeId().equals(inNode) && n.getStatus() == TaskStatus.DONE);
+            if (!isDone) return false;
+        }
+        return true;
+    }
+
     private WorkflowNode findStartNode(Workflow workflow) {
         return workflow.getNodes().stream()
                 .filter(n -> n.getType() == NodeType.START)
                 .findFirst()
-                .orElseThrow(() -> new RuntimeException(
-                        "El workflow no tiene nodo START"));
+                .orElseThrow(() -> new RuntimeException("El workflow no tiene nodo START"));
     }
 
-    private List<WorkflowNode> findNextNodes(Workflow workflow, String sourceNodeId) {
+    private List<WorkflowNode> findNextNodes(Workflow workflow, String sourceNodeId, Map<String, Object> globalVariables) {
+        WorkflowNode sourceNode = findWorkflowNode(workflow, sourceNodeId);
+
         List<String> nextIds = workflow.getEdges().stream()
                 .filter(e -> e.getSourceId().equals(sourceNodeId))
+                .filter(e -> evaluateCondition(e.getConditionRule(), globalVariables, sourceNode.getType()))
                 .map(WorkflowEdge::getTargetId)
                 .toList();
 
         return workflow.getNodes().stream()
                 .filter(n -> nextIds.contains(n.getId()))
                 .toList();
+    }
+
+    private boolean evaluateCondition(com.sw.organiflow.modules.workflow.models.ConditionRule rule, Map<String, Object> globalVariables, NodeType sourceType) {
+        if (sourceType != NodeType.CONDITION) {
+            return true;
+        }
+        if (rule == null || rule.getField() == null || rule.getField().isEmpty()) {
+            return true; // Sin regla configurada = pasa siempre
+        }
+
+        Object varValue = globalVariables.get(rule.getField());
+        if (varValue == null) return false;
+
+        String op = rule.getOperator();
+        String ruleValue = String.valueOf(rule.getValue());
+        String valText   = String.valueOf(varValue);
+
+        // Comparación de cadenas / booleanos
+        if ("==".equals(op)) return valText.equals(ruleValue);
+        if ("!=".equals(op)) return !valText.equals(ruleValue);
+
+        // Comparación numérica — intentar parsear ambos lados
+        try {
+            double left  = Double.parseDouble(valText);
+            double right = Double.parseDouble(ruleValue);
+            if (">".equals(op))  return left >  right;
+            if (">=".equals(op)) return left >= right;
+            if ("<".equals(op))  return left <  right;
+            if ("<=".equals(op)) return left <= right;
+        } catch (NumberFormatException e) {
+            log.warn("[evaluateCondition] No se pudo comparar numéricamente '{}' {} '{}' — evaluando como false",
+                    valText, op, ruleValue);
+            return false;
+        }
+
+        log.warn("[evaluateCondition] Operador desconocido '{}' — evaluando como false", op);
+        return false;
     }
 
     private WorkflowNode findWorkflowNode(Workflow workflow, String nodeId) {
@@ -256,8 +345,7 @@ public class ExecutionService {
     private Execution findByIdAndTenant(String id) {
         String tenantId = TenantContext.getTenantId();
         return executionRepository.findByIdAndTenantId(id, tenantId)
-                .orElseThrow(() -> new RuntimeException(
-                        "Ejecución no encontrada o no pertenece a tu empresa"));
+                .orElseThrow(() -> new RuntimeException("Ejecución no encontrada o no pertenece a tu empresa"));
     }
 
 }

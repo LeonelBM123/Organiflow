@@ -1,6 +1,6 @@
 .palette-sidebar {
-  width: 220px;
-  min-width: 220px;
+  width: 200px;
+  min-width: 200px;
   height: 100%;
   background: var(--surface-1);
   border-right: 1px solid var(--border-default);
@@ -8,7 +8,6 @@
   flex-direction: column;
   overflow: hidden;
   font-family: var(--font-sans);
-  transition: background 0.3s ease, border-color 0.3s ease;
 }
 
 .palette-header {
@@ -25,79 +24,103 @@
   letter-spacing: 0.12em;
 }
 
-// ── Syncfusion palette theme overrides ───────────────────────
-::ng-deep {
-  #organiflow-palette {
-    background: transparent !important;
-    border: none !important;
-    font-family: var(--font-sans) !important;
+.palette-scroll {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
 
-    .e-symbol-palette {
-      background: transparent !important;
-    }
+// ── Group ─────────────────────────────────────────────────────────────────────
 
-    // Section header (accordion title)
-    .e-palette-item {
-      border-bottom: 1px solid var(--border-default) !important;
-    }
+.palette-group {
+  border-bottom: 1px solid var(--border-default);
+}
 
-    .e-palette-title {
-      background: var(--surface-2) !important;
-      color: var(--text-primary) !important;
-      font-size: 11px !important;
-      font-weight: 600 !important;
-      letter-spacing: 0.04em !important;
-      border: none !important;
-      padding: 10px 14px !important;
-      font-family: var(--font-sans) !important;
-      display: flex !important;
-      align-items: center !important;
+.group-header {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: var(--surface-2);
+  border: none;
+  cursor: pointer;
+  font-family: var(--font-sans);
+  transition: background 0.15s ease;
 
-      &:hover {
-        background: var(--surface-3) !important;
-      }
-    }
-
-    .e-palette-title-bar-icon {
-      color: var(--text-secondary) !important;
-      font-size: 12px !important;
-    }
-
-    // Symbol grid container
-    .e-symbol-container {
-      background: transparent !important;
-      padding: 12px 10px !important;
-      display: flex !important;
-      flex-wrap: wrap !important;
-      gap: 8px !important;
-    }
-
-    // Individual symbol cell
-    .e-symbol {
-      border: 1px solid var(--border-default) !important;
-      border-radius: 10px !important;
-      background: var(--surface-2) !important;
-      transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease !important;
-      display: flex !important;
-      align-items: center !important;
-      justify-content: center !important;
-      cursor: grab !important;
-
-      &:hover {
-        border-color: var(--primary-500) !important;
-        background: var(--surface-3) !important;
-        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1) !important;
-        transform: none !important;
-      }
-
-      &:active {
-        cursor: grabbing !important;
-      }
-    }
-
-    // Hide description text (we use tooltip instead)
-    .e-symbol-description {
-      display: none !important;
-    }
+  &:hover {
+    background: var(--surface-3);
   }
+}
+
+.group-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: 0.04em;
+}
+
+.chevron {
+  color: var(--text-secondary);
+  transition: transform 0.2s ease;
+  flex-shrink: 0;
+
+  &.expanded {
+    transform: rotate(180deg);
+  }
+}
+
+// ── Items grid ─────────────────────────────────────────────────────────────────
+
+.group-items {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  padding: 12px 10px;
+  background: var(--surface-1);
+}
+
+.palette-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  padding: 8px 4px 6px;
+  border: 1px solid var(--border-default);
+  border-radius: 10px;
+  background: var(--surface-2);
+  cursor: grab;
+  transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+  user-select: none;
+
+  &:hover {
+    border-color: var(--primary-500);
+    background: var(--surface-3);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  }
+
+  &:active {
+    cursor: grabbing;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--primary-500);
+    outline-offset: 2px;
+  }
+}
+
+.item-icon {
+  width: 40px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.item-label {
+  font-size: 9px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  text-align: center;
+  line-height: 1.2;
 }

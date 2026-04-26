@@ -3,38 +3,38 @@
   <!-- Header -->
   <div class="page-header">
     <div class="header-text">
-      <h1 class="page-title">Mis Tareas</h1>
-      <p class="page-subtitle">Gestiona las tareas asignadas a tu perfil</p>
+      <h1 class="page-title">Formularios pendientes</h1>
+      <p class="page-subtitle">Formularios que requieren tu respuesta para continuar el proceso</p>
     </div>
   </div>
 
   <!-- Filters -->
-  <div class="filter-bar" role="group" aria-label="Filtrar tareas por estado">
+  <div class="filter-bar" role="group" aria-label="Filtrar formularios por estado">
     <button
       class="filter-btn"
       [class.active]="statusFilter() === 'all'"
       (click)="setFilter('all')"
-      aria-pressed="{{ statusFilter() === 'all' }}"
-    >Todas</button>
+      [attr.aria-pressed]="statusFilter() === 'all'"
+    >Todos</button>
     <button
       class="filter-btn"
       [class.active]="statusFilter() === 'pending'"
       (click)="setFilter('pending')"
-      aria-pressed="{{ statusFilter() === 'pending' }}"
+      [attr.aria-pressed]="statusFilter() === 'pending'"
     >Pendientes</button>
     <button
       class="filter-btn"
       [class.active]="statusFilter() === 'in_progress'"
       (click)="setFilter('in_progress')"
-      aria-pressed="{{ statusFilter() === 'in_progress' }}"
+      [attr.aria-pressed]="statusFilter() === 'in_progress'"
     >En progreso</button>
   </div>
 
   <!-- Loading -->
   @if (isLoading()) {
     <div class="state-center" aria-live="polite" aria-busy="true">
-      <div class="spinner" aria-label="Cargando tareas"></div>
-      <span>Cargando tareas...</span>
+      <div class="spinner" aria-label="Cargando formularios"></div>
+      <span>Cargando formularios...</span>
     </div>
   }
 
@@ -43,22 +43,24 @@
     <div class="state-center" role="status">
       <div class="empty-icon" aria-hidden="true">
         <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
-          <rect x="8" y="10" width="32" height="30" rx="3" stroke="currentColor" stroke-width="1.5"/>
-          <path d="M16 20h16M16 26h10M16 32h6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          <rect x="8" y="6" width="32" height="36" rx="3" stroke="currentColor" stroke-width="1.5"/>
+          <path d="M16 16h16M16 22h16M16 28h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          <circle cx="36" cy="36" r="7" fill="var(--surface-1)" stroke="currentColor" stroke-width="1.5"/>
+          <path d="M36 33v3.5l2 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
         </svg>
       </div>
-      <p class="empty-title">Sin tareas</p>
-      <p class="empty-sub">No tienes tareas asignadas en este momento</p>
+      <p class="empty-title">Sin formularios pendientes</p>
+      <p class="empty-sub">No tienes formularios que completar en este momento</p>
     </div>
   }
 
   <!-- Table -->
   @if (!isLoading() && filteredTasks().length > 0) {
-    <div class="table-wrapper" role="region" aria-label="Lista de tareas">
-      <table class="data-table" aria-label="Tareas">
+    <div class="table-wrapper" role="region" aria-label="Lista de formularios pendientes">
+      <table class="data-table" aria-label="Formularios pendientes">
         <thead>
           <tr>
-            <th scope="col">Tarea</th>
+            <th scope="col">Formulario</th>
             <th scope="col">Proceso</th>
             <th scope="col">Estado</th>
             <th scope="col">Vencimiento</th>
@@ -67,24 +69,33 @@
         </thead>
         <tbody>
           @for (task of filteredTasks(); track task.id) {
-            <tr class="data-row" (click)="viewTask(task.id)" style="cursor:pointer" [attr.aria-label]="'Ver tarea: ' + task.nodeName">
+            <tr
+              class="data-row"
+              (click)="openForm(task.id)"
+              style="cursor:pointer"
+              [attr.aria-label]="'Completar formulario: ' + task.nodeName"
+            >
               <td class="cell-name">
                 <span class="name-text">{{ task.nodeName }}</span>
-                @if (task.departmentId) {
-                  <span class="desc-text">Depto: {{ task.departmentId }}</span>
-                }
               </td>
               <td class="cell-secondary">{{ task.workflowId }}</td>
               <td>
-                <span class="status-badge" [attr.data-status]="task.status" [attr.aria-label]="statusLabels[task.status]">
+                <span
+                  class="status-badge"
+                  [attr.data-status]="task.status"
+                  [attr.aria-label]="statusLabels[task.status]"
+                >
                   {{ statusLabels[task.status] }}
                 </span>
               </td>
               <td class="cell-due">
                 @if (task.dueAt) {
-                  <span [class.overdue]="isOverdue(task.dueAt)" [attr.aria-label]="isOverdue(task.dueAt) ? 'VENCIDA: ' + formatDate(task.dueAt) : formatDate(task.dueAt)">
+                  <span
+                    [class.overdue]="isOverdue(task.dueAt)"
+                    [attr.aria-label]="isOverdue(task.dueAt) ? 'VENCIDO: ' + formatDate(task.dueAt) : formatDate(task.dueAt)"
+                  >
                     @if (isOverdue(task.dueAt)) {
-                      <span class="overdue-badge" aria-hidden="true">VENCIDA</span>
+                      <span class="overdue-badge" aria-hidden="true">VENCIDO</span>
                     }
                     {{ formatDate(task.dueAt) }}
                   </span>
@@ -95,10 +106,10 @@
               <td class="cell-actions">
                 <button
                   class="action-btn"
-                  (click)="$event.stopPropagation(); viewTask(task.id)"
-                  [attr.aria-label]="'Ver tarea: ' + task.nodeName"
+                  (click)="$event.stopPropagation(); openForm(task.id)"
+                  [attr.aria-label]="'Completar formulario: ' + task.nodeName"
                 >
-                  Ver tarea
+                  Completar
                 </button>
               </td>
             </tr>

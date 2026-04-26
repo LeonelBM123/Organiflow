@@ -26,10 +26,9 @@ public class WorkflowNode {
     private List<Map<String, Object>> annotations;
     private List<Map<String, Object>> ports;
 
-    // Responsable — asignación dinámica por role del lane
-    // Si assignedUserId tiene valor → asignación fija (override)
-    private String assignedRole;        // role responsable heredado del lane
-    private String assignedUserId;      // opcional: asignación fija específica
+    // Responsable — asignación por departamento (obligatorio) y usuario (opcional override)
+    private String departmentId;        // departamento responsable del nodo
+    private String assignedUserId;      // opcional: asignación fija a un usuario específico del dept
 
     // Timeout en horas — para el escalado automático
     private Integer timeoutHours;

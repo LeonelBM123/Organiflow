@@ -67,7 +67,7 @@ export interface WorkflowNode {
   height: number;
   annotations: Array<{ content: string }>;
   ports: Port[];
-  assignedRole?: string;
+  departmentId?: string;
   assignedUserId?: string;
   timeoutHours?: number;
   formSchema?: FormSchema;

@@ -12,6 +12,7 @@ import org.springframework.data.mongodb.core.mapping.Field;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 @Document(collection = "executions")
 @CompoundIndexes({
@@ -61,4 +62,8 @@ public class Execution extends AuditDocument {
 
     @Field("completed_at")
     private Instant completedAt;
+
+    @Field("global_variables")
+    @Builder.Default
+    private Map<String, Object> globalVariables = new java.util.HashMap<>();
 }

@@ -161,6 +161,20 @@ export const routes: Routes = [
           )
       },
       {
+        path: 'forms',
+        loadComponent: () =>
+          import('./features/tasks/components/pending-forms/pending-forms.component').then(
+            (m) => m.PendingFormsComponent
+          )
+      },
+      {
+        path: 'forms/:id',
+        loadComponent: () =>
+          import('./features/tasks/components/form-detail/form-detail.component').then(
+            (m) => m.FormDetailComponent
+          )
+      },
+      {
         path: 'history',
         loadComponent: () =>
           import('./features/dashboard/components/user-dashboard/user-dashboard.component').then(
@@ -177,5 +191,5 @@ export const routes: Routes = [
     ]
   },
 
-  { path: '**', redirectTo: 'login' }
+  //{ path: '**', redirectTo: 'login' }
 ];

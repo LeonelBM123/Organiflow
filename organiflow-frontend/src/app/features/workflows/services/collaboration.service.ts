@@ -112,8 +112,10 @@ export class CollaborationService implements OnDestroy {
   private handleEvent(event: DiagramEvent): void {
     switch (event.eventType) {
       case 'DIAGRAM_CHANGED': {
+        console.log('[Collab] DIAGRAM_CHANGED recibido', { userId: event.userId, myId: this.currentUserId, sameUser: event.userId === this.currentUserId });
         if (event.userId === this.currentUserId) return;
         const payload = event.payload as DiagramChangedPayload;
+        console.log('[Collab] uiSchema recibido, longitud:', payload?.uiSchema?.length);
         if (payload?.uiSchema) {
           this.zone.run(() => this._diagramChanged.next(payload.uiSchema));
         }
@@ -154,8 +156,13 @@ export class CollaborationService implements OnDestroy {
   }
 
   private sendFrame(destination: string, body: unknown): void {
-    if (!this.client?.connected) return;
-    this.client.publish({ destination, body: JSON.stringify(body) });
+    if (!this.client?.connected) {
+      console.warn('[Collab] sendFrame: client not connected, dropping:', destination);
+      return;
+    }
+    const serialized = JSON.stringify(body);
+    console.log('[Collab] sendFrame publish:', destination, 'body size:', serialized.length);
+    this.client.publish({ destination, body: serialized });
   }
 
   private extractUserIdFromToken(token: string): string {

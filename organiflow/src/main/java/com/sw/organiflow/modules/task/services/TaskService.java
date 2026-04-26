@@ -1,6 +1,8 @@
 package com.sw.organiflow.modules.task.services;
 
 import com.sw.organiflow.config.TenantContext;
+import com.sw.organiflow.modules.department.models.Department;
+import com.sw.organiflow.modules.department.repositories.DepartmentRepository;
 import com.sw.organiflow.modules.execution.services.ExecutionService;
 import com.sw.organiflow.modules.notifications.repositories.UserDeviceRepository;
 import com.sw.organiflow.modules.notifications.services.PushNotificationService;
@@ -32,16 +34,19 @@ public class TaskService {
     private final PushNotificationService pushNotificationService;
     private final UserDeviceRepository userDeviceRepository;
     private final ExecutionService executionService;
+    private final DepartmentRepository departmentRepository;
 
     @Autowired
     public TaskService(TaskRepository taskRepository,
                        PushNotificationService pushNotificationService,
                        UserDeviceRepository userDeviceRepository,
-                       @Lazy ExecutionService executionService) {
+                       @Lazy ExecutionService executionService,
+                       DepartmentRepository departmentRepository) {
         this.taskRepository = taskRepository;
         this.pushNotificationService = pushNotificationService;
         this.userDeviceRepository = userDeviceRepository;
         this.executionService = executionService;
+        this.departmentRepository = departmentRepository;
     }
 
     public Task createFromNode(String tenantId, String executionId, String workflowId,
@@ -60,8 +65,8 @@ public class TaskService {
                 .workflowId(workflowId)
                 .nodeId(node.getId())
                 .nodeName(node.getName())
+                .departmentId(node.getDepartmentId())
                 .assignedUserId(node.getAssignedUserId())
-                .assignedRole(node.getAssignedRole())
                 .status(TaskStatus.PENDING)
                 .formSchema(node.getFormSchema())
                 .dueAt(dueAt)
@@ -77,21 +82,19 @@ public class TaskService {
     public List<TaskResponse> findMine() {
         String tenantId = TenantContext.getTenantId();
         String userId = SecurityUtils.getCurrentUserId();
-        String role = SecurityUtils.getCurrentRole();
 
         List<Task> byUser = taskRepository.findByTenantIdAndAssignedUserId(tenantId, userId);
-        List<Task> byRole = new ArrayList<>();
 
-        if (role != null) {
-            byRole = taskRepository.findByTenantIdAndAssignedRoleAndStatus(
-                    tenantId, role, TaskStatus.PENDING);
-            byRole = byRole.stream()
-                    .filter(t -> t.getAssignedUserId() == null)
-                    .toList();
-        }
+        List<String> deptIds = departmentRepository
+                .findByTenantIdAndMemberUserIdsContaining(tenantId, userId)
+                .stream().map(Department::getId).toList();
+
+        List<Task> byDept = deptIds.isEmpty() ? List.of()
+                : taskRepository.findByTenantIdAndDepartmentIdIn(tenantId, deptIds)
+                        .stream().filter(t -> t.getAssignedUserId() == null).toList();
 
         List<Task> combined = new ArrayList<>(byUser);
-        combined.addAll(byRole);
+        combined.addAll(byDept);
         return combined.stream().map(TaskResponse::from).toList();
     }
 
@@ -173,14 +176,25 @@ public class TaskService {
     }
 
     private void notifyAssignedUser(Task task) {
-        if (task.getAssignedUserId() == null) return;
-
-        userDeviceRepository.findByUserId(task.getAssignedUserId())
-                .forEach(device -> pushNotificationService.sendPushNotificationToDevice(
-                        device.getFcmToken(),
-                        "Nueva tarea asignada",
-                        "Tienes una nueva tarea: " + task.getNodeName()
-                ));
+        if (task.getAssignedUserId() != null) {
+            userDeviceRepository.findByUserId(task.getAssignedUserId())
+                    .forEach(device -> pushNotificationService.sendPushNotificationToDevice(
+                            device.getFcmToken(),
+                            "Nueva tarea asignada",
+                            "Tienes una nueva tarea: " + task.getNodeName()
+                    ));
+        } else if (task.getDepartmentId() != null) {
+            departmentRepository.findById(task.getDepartmentId()).ifPresent(dept ->
+                dept.getMemberUserIds().forEach(memberId ->
+                    userDeviceRepository.findByUserId(memberId)
+                            .forEach(device -> pushNotificationService.sendPushNotificationToDevice(
+                                    device.getFcmToken(),
+                                    "Nueva tarea disponible",
+                                    "Hay una nueva tarea para tu departamento: " + task.getNodeName()
+                            ))
+                )
+            );
+        }
     }
 
     private Task findByIdAndTenant(String id) {

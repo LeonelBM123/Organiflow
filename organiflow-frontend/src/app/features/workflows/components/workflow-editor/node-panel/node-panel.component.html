@@ -23,7 +23,7 @@
         <path d="M14 10h12M20 6v4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
         <circle cx="20" cy="22" r="3" stroke="currentColor" stroke-width="1.5"/>
       </svg>
-      <p>Haz clic derecho sobre un nodo para editar sus propiedades</p>
+      <p>Haz clic sobre un nodo para editar sus propiedades</p>
     </div>
   }
 
@@ -44,14 +44,45 @@
         />
       </div>
 
-      <!-- Rol responsable -->
+      <!-- Departamento responsable -->
       <div class="field-group">
-        <label class="field-label" for="node-role">Rol responsable</label>
-        <select id="node-role" class="field-select" formControlName="assignedRole">
-          <option value="user">Cliente (usuario)</option>
-          <option value="officer">Funcionario</option>
-          <option value="admin">Administrador</option>
+        <label class="field-label" for="node-dept">Departamento *</label>
+        <select
+          id="node-dept"
+          class="field-select"
+          formControlName="departmentId"
+          (change)="onDepartmentChange($event)"
+          aria-required="true"
+        >
+          <option value="">— Selecciona un departamento —</option>
+          @for (dept of departments(); track dept.id) {
+            <option [value]="dept.id">{{ dept.name }}</option>
+          }
         </select>
+      </div>
+
+      <!-- Usuario específico (opcional, solo si hay departamento seleccionado) -->
+      <div class="field-group">
+        <label class="field-label" for="node-user">
+          Usuario específico
+          <span class="field-optional">(opcional)</span>
+        </label>
+        <select
+          id="node-user"
+          class="field-select"
+          formControlName="assignedUserId"
+          [attr.disabled]="!selectedDepartmentId() ? true : null"
+          [attr.aria-disabled]="!selectedDepartmentId()"
+          aria-describedby="user-hint"
+        >
+          <option value="">— Cualquier miembro del departamento —</option>
+          @for (member of departmentMembers(); track member.id) {
+            <option [value]="member.id">{{ member.name }}</option>
+          }
+        </select>
+        @if (!selectedDepartmentId()) {
+          <span id="user-hint" class="field-hint">Selecciona un departamento para asignar a un usuario específico</span>
+        }
       </div>
 
       <!-- Timeout (solo TASK/ITERATOR) -->

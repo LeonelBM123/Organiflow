@@ -27,16 +27,36 @@
   flex: 1;
   position: relative;
   background:
-    radial-gradient(ellipse at 20% 50%, rgba(var(--accent-teal-rgb, 16, 185, 129), 0.04) 0%, transparent 60%),
-    radial-gradient(ellipse at 80% 20%, rgba(var(--accent-blue-rgb, 59, 130, 246), 0.04) 0%, transparent 60%),
+    radial-gradient(ellipse at 20% 50%, rgba(16, 185, 129, 0.04) 0%, transparent 60%),
+    radial-gradient(ellipse at 80% 20%, rgba(59, 130, 246, 0.04) 0%, transparent 60%),
     var(--canvas-bg);
   transition: background 0.3s ease;
+  min-height: 0;
 
   &.loading {
     display: flex;
     align-items: center;
     justify-content: center;
   }
+}
+
+.diagram-host {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+
+  &.hidden {
+    visibility: hidden;
+    pointer-events: none;
+  }
+}
+
+.diagram-drop-zone {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
 }
 
 .canvas-loading {
@@ -59,91 +79,55 @@
 
 @keyframes spin { to { transform: rotate(360deg); } }
 
-// ── Syncfusion theme-aware overrides ──────────────────────
+// ── Syncfusion diagram overrides ─────────────────────────────────────────────
+
 ::ng-deep {
-  .e-diagram {
-    background: transparent !important;
-  }
-
-  .e-diagram-background {
-    fill: transparent !important;
-  }
-
-  // Swimlane header
-  .e-swimlane-header rect {
-    fill: var(--surface-3) !important;
-    rx: 4;
-    ry: 4;
-  }
-
-  .e-swimlane-header text {
-    fill: var(--text-primary) !important;
+  #organiflow-diagram {
     font-family: var(--font-sans) !important;
-    font-weight: 600 !important;
-  }
 
-  // Lane headers
-  .e-lane-header rect {
-    fill: var(--surface-2) !important;
-    stroke: var(--border-default) !important;
-  }
+    // Canvas background
+    .e-diagram-background {
+      background: transparent !important;
+    }
 
-  .e-lane-header text {
-    fill: var(--text-primary) !important;
-    font-family: var(--font-sans) !important;
-    font-size: 12px !important;
-  }
+    // Grid dots — usa la variable CSS para respetar el tema
+    .e-grid-dot {
+      fill: var(--canvas-grid-color, #cbd5e1);
+      transition: fill 0.3s ease;
+    }
 
-  // Lane body
-  .e-lane rect {
-    stroke: var(--border-default) !important;
-    stroke-width: 1 !important;
-  }
+    // Node selection highlight
+    .e-diagram-selected-region,
+    .e-handler {
+      stroke: var(--primary-500) !important;
+      fill: rgba(59, 130, 246, 0.06) !important;
+    }
 
-  // Node labels
-  .e-diagram .e-node text {
-    font-family: var(--font-sans) !important;
-  }
+    // Swimlane header styling
+    .e-swimlane-header {
+      font-family: var(--font-sans) !important;
+    }
 
-  // Connector labels
-  .e-diagram .e-connector text {
-    font-family: var(--font-sans) !important;
-    fill: var(--text-secondary) !important;
-  }
+    // Connector hover area (wider click target)
+    .e-connector-path {
+      cursor: pointer;
+    }
 
-  // Selection handles
-  .e-diagram .e-selector .e-handle {
-    fill: var(--primary-500) !important;
-    stroke: var(--surface-2) !important;
-    stroke-width: 1.5 !important;
-  }
+    // Port hover — puntos de conexión visibles al pasar el mouse
+    .e-port {
+      cursor: crosshair;
 
-  .e-diagram .e-selector .e-border {
-    stroke: var(--primary-500) !important;
-    stroke-dasharray: 5 3 !important;
-    stroke-width: 1.5 !important;
-  }
+      circle {
+        fill: #3b82f6;
+        stroke: #1d4ed8;
+        stroke-width: 1.5;
+      }
 
-  // Rulers
-  .e-diagram .e-ruler {
-    background: var(--surface-1) !important;
-    border-color: var(--border-default) !important;
+      &:hover circle {
+        fill: #2563eb;
+        stroke: #1e40af;
+        r: 6; // radio ligeramente mayor al hacer hover
+      }
+    }
   }
-
-  // Grid lines
-  .e-diagram-grid line {
-    stroke: var(--canvas-grid-color) !important;
-    stroke-width: 0.5 !important;
-  }
-
-  // Tooltip
-  .e-diagram-tooltip {
-    background: var(--surface-2) !important;
-    border: 1px solid var(--border-default) !important;
-    border-radius: 6px !important;
-    color: var(--text-primary) !important;
-    font-family: var(--font-sans) !important;
-    box-shadow: var(--shadow-md) !important;
-  }
-
 }
