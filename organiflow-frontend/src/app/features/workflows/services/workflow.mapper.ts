@@ -415,8 +415,7 @@ export class WorkflowMapper {
   }
 
   private static edgeToConnector(edge: WorkflowEdge): ConnectorModel {
-    const isDashed = edge.relationType === 'CONDITIONAL' || edge.relationType === 'ITERATIVE';
-    const color = EDGE_COLORS[edge.relationType] ?? '#10b981';
+    const color = EDGE_COLORS[edge.relationType] ?? '#334155';
 
     return {
       id: edge.id,
@@ -428,7 +427,6 @@ export class WorkflowMapper {
       style: {
         strokeColor: color,
         strokeWidth: 2,
-        strokeDashArray: isDashed ? '6 3' : undefined,
       },
       targetDecorator: {
         shape: 'Arrow',

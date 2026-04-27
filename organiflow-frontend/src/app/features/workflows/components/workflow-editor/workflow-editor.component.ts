@@ -528,6 +528,19 @@ export class WorkflowEditorComponent implements OnInit, AfterViewInit, OnDestroy
       }
       connector.addInfo.conditionRule = conditionRule;
       connector.addInfo.relationType = 'CONDITIONAL';
+
+      // Aplicar estilo visual del tipo CONDITIONAL (punteado + color oscuro)
+      const color = WorkflowMapper.getEdgeColor('CONDITIONAL');
+      connector.style = {
+        ...(connector.style ?? {}),
+        strokeColor: color,
+        strokeWidth: 2,
+      };
+      if (connector.targetDecorator) {
+        connector.targetDecorator.style = { fill: color, strokeColor: color };
+      }
+      this.diagram.dataBind();
+
       this.selectedConnector.set(null);
       this.onDiagramModified();
     }
@@ -1382,7 +1395,6 @@ export class WorkflowEditorComponent implements OnInit, AfterViewInit, OnDestroy
         const edge = m.edge_data!;
         const relationType = edge.relationType ?? 'SEQUENTIAL';
         const color = WorkflowMapper.getEdgeColor(relationType);
-        const isDashed = relationType === 'CONDITIONAL' || relationType === 'ITERATIVE';
         this.diagram.add({
           id: edge.id ?? `edge-${crypto.randomUUID()}`,
           sourceID: edge.sourceId,
@@ -1391,7 +1403,6 @@ export class WorkflowEditorComponent implements OnInit, AfterViewInit, OnDestroy
           style: {
             strokeColor: color,
             strokeWidth: 2,
-            strokeDashArray: isDashed ? '6 3' : undefined,
           },
           targetDecorator: { shape: 'Arrow', style: { fill: color, strokeColor: color } },
           addInfo: { relationType },
