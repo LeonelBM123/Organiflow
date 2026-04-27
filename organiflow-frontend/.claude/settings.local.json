@@ -9,7 +9,12 @@
       "Bash(node -e \"const p = require\\('./node_modules/@syncfusion/ej2-diagrams/dist/es6/ej2-diagrams.es2015.js'\\); console.log\\('UndoRedo:', typeof p.UndoRedo\\);\")",
       "Bash(node -e \"const p = require\\('./node_modules/@syncfusion/ej2-angular-diagrams/src/diagram/diagram.module.js'\\); console.log\\(JSON.stringify\\(Object.keys\\(p\\)\\)\\);\")",
       "Bash(curl -s http://localhost:4200/)",
-      "Bash(npx tsc *)"
+      "Bash(npx tsc *)",
+      "Bash(venv/Scripts/python -m pytest tests/ -v)",
+      "Bash(venv/Scripts/pip install *)",
+      "Bash(venv/Scripts/python -m pytest tests/ -q)",
+      "Bash(venv/Scripts/python -m pytest tests/ -v --tb=short)",
+      "mcp__ide__getDiagnostics"
     ]
   }
 }

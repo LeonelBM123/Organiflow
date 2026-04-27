@@ -142,3 +142,54 @@ export interface WorkflowSaveRequest {
 export interface WorkflowPublishRequest {
   changelog: string;
 }
+
+// ============================================================
+// Análisis de workflow — endpoint POST /api/v1/ia/analyze
+// ============================================================
+
+export type ErrorSeverity = 'ERROR' | 'WARNING' | 'INFO';
+
+export interface WorkflowLogicError {
+  severity:   ErrorSeverity;
+  nodeId:     string | null;
+  edgeId:     string | null;
+  message:    string;
+  suggestion: string;
+}
+
+export interface WorkflowBottleneck {
+  nodeId:     string;
+  nodeName:   string | null;
+  reason:     string;
+  suggestion: string;
+}
+
+export interface WorkflowAnalysisResult {
+  logicErrors: WorkflowLogicError[];
+  bottlenecks: WorkflowBottleneck[];
+  summary:     string;
+  isValid:     boolean;
+}
+
+export interface WorkflowAnalysisRequest {
+  nodes: { id: string; name: string; type: string; laneId?: string }[];
+  edges: { id: string; sourceId: string; targetId: string }[];
+  lanes: { id: string; name: string }[];
+}
+
+// ============================================================
+// Generación de esquema — endpoint POST /api/v1/ia/generate-schema
+// ============================================================
+
+export interface NodeSchemaRequest {
+  node_type:         NodeType;
+  context:           string;
+  department_name?:  string;
+  language:          string;
+  voice_transcript?: string;
+}
+
+export interface NodeSchemaResponse {
+  formSchema: FormSchema;
+  reasoning:  string;
+}

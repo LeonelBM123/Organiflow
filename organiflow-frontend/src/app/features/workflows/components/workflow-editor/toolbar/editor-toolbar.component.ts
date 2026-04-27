@@ -25,10 +25,13 @@ export class EditorToolbarComponent {
   activeUsers = input<ActiveUser[]>([]);
   connectionStatus = input<ConnectionStatus>('disconnected');
 
-  saveClick = output<void>();
+  isAnalyzing = input<boolean>(false);
+
+  saveClick    = output<void>();
   publishClick = output<void>();
   archiveClick = output<void>();
-  draftClick = output<void>();
+  draftClick   = output<void>();
+  analyzeClick = output<void>();
 
   isEditable = computed(() => this.workflow()?.status === 'DRAFT');
   isPublished = computed(() => this.workflow()?.status === 'PUBLISHED');

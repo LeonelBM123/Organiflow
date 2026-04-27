@@ -212,4 +212,34 @@
       border-color: rgba(239, 68, 68, 0.35);
     }
   }
+
+  &.btn-analyze {
+    color: var(--primary-500);
+    border-color: color-mix(in srgb, var(--primary-500) 35%, transparent);
+
+    &:hover:not(:disabled) {
+      background: color-mix(in srgb, var(--primary-500) 8%, transparent);
+      color: var(--primary-500);
+      border-color: var(--primary-500);
+    }
+
+    &:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+  }
+}
+
+.analyze-spinner {
+  width: 11px;
+  height: 11px;
+  border: 2px solid color-mix(in srgb, var(--primary-500) 30%, transparent);
+  border-top-color: var(--primary-500);
+  border-radius: 50%;
+  animation: spin-toolbar 0.7s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes spin-toolbar {
+  to { transform: rotate(360deg); }
 }

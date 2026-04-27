@@ -14,13 +14,11 @@ class LoginScreen extends ConsumerStatefulWidget {
 }
 
 class _LoginScreenState extends ConsumerState<LoginScreen> {
-  // 2. Creamos los controladores para capturar lo que el usuario escribe
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
 
   @override
   void dispose() {
-    // 3. Es vital limpiar la memoria cuando cerramos la pantalla
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();

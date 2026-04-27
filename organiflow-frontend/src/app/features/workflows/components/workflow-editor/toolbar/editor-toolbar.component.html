@@ -29,6 +29,22 @@
   <!-- Right: actions -->
   <div class="toolbar-right">
     @if (isEditable()) {
+      <button
+        class="btn-ghost btn-analyze"
+        (click)="analyzeClick.emit()"
+        [disabled]="isAnalyzing()"
+        [attr.aria-busy]="isAnalyzing()"
+        aria-label="Analizar errores lógicos y cuellos de botella del workflow">
+        @if (isAnalyzing()) {
+          <span class="analyze-spinner" aria-hidden="true"></span>
+          Analizando...
+        } @else {
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          </svg>
+          Analizar
+        }
+      </button>
       <button class="btn-ghost" (click)="saveClick.emit()" aria-label="Guardar diagrama manualmente">
         <svg width="15" height="15" viewBox="0 0 15 15" fill="none" aria-hidden="true">
           <path d="M2 2h9l2 2v9a1 1 0 01-1 1H2a1 1 0 01-1-1V3a1 1 0 011-1z" stroke="currentColor" stroke-width="1.3"/>

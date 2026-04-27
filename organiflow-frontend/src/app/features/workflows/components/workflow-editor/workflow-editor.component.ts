@@ -21,7 +21,7 @@ import { WorkflowMapper } from '../../services/workflow.mapper';
 import { DepartmentService } from '../../../departments/services/department.service';
 import { Department } from '../../../departments/models/department.model';
 import { UserService, UserSummary } from '../../../../core/services/user.service';
-import { WorkflowResponse, WorkflowNode, WorkflowSaveRequest } from '../../models/workflow.model';
+import { WorkflowResponse, WorkflowNode, WorkflowSaveRequest, WorkflowAnalysisResult } from '../../models/workflow.model';
 import { AiService, AiMutation } from '../../services/ai.service';
 import { EditorToolbarComponent } from './toolbar/editor-toolbar.component';
 import { SymbolPaletteComponent } from './symbol-palette/symbol-palette.component';
@@ -84,6 +84,19 @@ export class WorkflowEditorComponent implements OnInit, AfterViewInit, OnDestroy
   readonly isAiThinking = signal(false);
   readonly isRecording = signal(false);
   readonly isSpeechSupported = signal(false);
+
+  // ── Análisis de workflow ──────────────────────────────────────────────────
+  readonly isAnalyzing       = signal(false);
+  readonly analysisResult    = signal<WorkflowAnalysisResult | null>(null);
+  readonly showAnalysisPanel = signal(false);
+  readonly analysisError     = signal<string | null>(null);
+
+  readonly analysisErrors   = computed(() =>
+    this.analysisResult()?.logicErrors.filter(e => e.severity === 'ERROR') ?? []
+  );
+  readonly analysisWarnings = computed(() =>
+    this.analysisResult()?.logicErrors.filter(e => e.severity === 'WARNING') ?? []
+  );
 
   readonly activeUsers = this.collaborationService.activeUsers;
   readonly connectionStatus = this.collaborationService.connectionStatus;
@@ -1140,54 +1153,118 @@ export class WorkflowEditorComponent implements OnInit, AfterViewInit, OnDestroy
     this.iaPrompt.set((event.target as HTMLInputElement).value);
   }
 
-  pedirCambiosIA(): void {
-    const prompt = this.iaPrompt().trim();
-    if (!prompt || this.isAiThinking()) return;
+  // ── Extracción del estado del diagrama ───────────────────────────────────
 
-    // Extraer estado lógico limpio: IDs, nombres, tipos y laneId — sin coordenadas
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private _extractNodesForAi(): { id: string; name: string; type: string; laneId?: string }[] {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const currentNodes = (this.diagram.nodes as any[])
+    return (this.diagram.nodes as any[])
       .filter(n => n.addInfo?.organiflowType)
       .map(n => ({
-        id: n.id as string,
-        name: (n.addInfo?.name || n.annotations?.[0]?.content || 'Sin nombre') as string,
-        type: (n.addInfo?.organiflowType || 'TASK') as string,
+        id:     n.id as string,
+        name:   (n.addInfo?.name || n.annotations?.[0]?.content || 'Sin nombre') as string,
+        type:   (n.addInfo?.organiflowType || 'TASK') as string,
         laneId: (n.addInfo?.laneId || n.addInfo?.departmentId) as string | undefined,
       }));
+  }
 
+  private _extractEdgesForAi(): { id: string; sourceId: string; targetId: string }[] {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const currentEdges = (this.diagram.connectors as any[]).map(c => ({
-      id: c.id as string,
+    return (this.diagram.connectors as any[]).map(c => ({
+      id:       c.id as string,
       sourceId: c.sourceID as string,
       targetId: c.targetID as string,
     }));
+  }
 
-    // Extraer carriles actuales del swimlane
+  private _extractLanesForAi(): { id: string; name: string }[] {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const swimlaneNode = (this.diagram.nodes as any[]).find(n => n.shape?.type === 'SwimLane');
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const currentLanes = ((swimlaneNode?.shape?.lanes ?? []) as any[]).map((lane: any) => {
+    return ((swimlaneNode?.shape?.lanes ?? []) as any[]).map((lane: any) => {
       const rawId = String(lane.id ?? '');
       const laneId = rawId.startsWith('lane_') ? rawId.slice(5) : rawId;
       const name = (lane.header?.annotation?.content || lane.header?.content || laneId) as string;
       return { id: laneId, name };
     });
+  }
+
+  // ── Análisis de workflow ──────────────────────────────────────────────────
+
+  analyzeWorkflow(): void {
+    if (this.isAnalyzing()) return;
+
+    this.isAnalyzing.set(true);
+    this.analysisError.set(null);
+    this.cdr.detectChanges();
+
+    this.aiService.analyze({
+      nodes: this._extractNodesForAi(),
+      edges: this._extractEdgesForAi(),
+      lanes: this._extractLanesForAi(),
+    }).subscribe({
+      next: (result) => {
+        this.analysisResult.set(result);
+        this.showAnalysisPanel.set(true);
+        this.isAnalyzing.set(false);
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        this.analysisError.set('No se pudo conectar con el servicio de análisis. Verifica que el microservicio de IA esté activo.');
+        this.isAnalyzing.set(false);
+        this.cdr.detectChanges();
+      },
+    });
+  }
+
+  highlightNode(nodeId: string | null): void {
+    if (!nodeId) return;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const node = this.diagram.getObject(nodeId) as any;
+    if (node) {
+      this.diagram.select([node]);
+      if (node.wrapper?.bounds) {
+        this.diagram.bringIntoView(node.wrapper.bounds);
+      }
+    }
+  }
+
+  closeAnalysisPanel(): void {
+    this.showAnalysisPanel.set(false);
+    this.analysisResult.set(null);
+  }
+
+  // ── IA de mutaciones ──────────────────────────────────────────────────────
+
+  pedirCambiosIA(): void {
+    const prompt = this.iaPrompt().trim();
+    if (!prompt || this.isAiThinking()) return;
 
     this.isAiThinking.set(true);
     this.cdr.detectChanges();
 
-    this.aiService.getMutations({ prompt, current_nodes: currentNodes, current_edges: currentEdges, current_lanes: currentLanes }).subscribe({
-      next: (plan) => {
-        console.log('[IA] Razonamiento:', plan.razonamiento);
-        this.ejecutarMutacionesSyncfusion(plan.mutations);
-        this.iaPrompt.set('');
+    this.aiService.getMutations({
+      prompt,
+      current_nodes: this._extractNodesForAi(),
+      current_edges: this._extractEdgesForAi(),
+      current_lanes: this._extractLanesForAi(),
+    }).pipe(
+      finalize(() => {
         this.isAiThinking.set(false);
         this.cdr.detectChanges();
+      }),
+    ).subscribe({
+      next: (plan) => {
+        console.log('[IA] Razonamiento:', plan.razonamiento);
+        try {
+          this.ejecutarMutacionesSyncfusion(plan.mutations);
+        } catch (e) {
+          console.error('[IA] Error al aplicar mutaciones en el canvas:', e);
+        }
+        this.iaPrompt.set('');
       },
       error: (err) => {
         console.error('[IA] Error contactando al microservicio:', err);
-        this.isAiThinking.set(false);
-        this.cdr.detectChanges();
       },
     });
   }
@@ -1275,22 +1352,80 @@ export class WorkflowEditorComponent implements OnInit, AfterViewInit, OnDestroy
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const node = this.diagram.getObject(m.target_id!) as any;
         if (!node) return;
-        const newName = m.node_data!.name;
-        if (node.annotations?.length) {
-          node.annotations[0].content = newName;
+
+        const nd = m.node_data!;
+
+        // Actualizar etiqueta visual si viene nombre
+        if (nd.name && node.annotations?.length) {
+          node.annotations[0].content = nd.name;
         }
-        const patch: Record<string, unknown> = { name: newName };
-        // Si la IA indica cambio de carril, actualizar laneId
-        if (m.node_data!.laneId) {
-          patch['laneId'] = m.node_data!.laneId;
-          patch['departmentId'] = m.node_data!.laneId;
-        }
+
+        // Parche completo de addInfo: incluye todos los campos de negocio
+        const patch: Record<string, unknown> = {};
+        if (nd.name)           patch['name']         = nd.name;
+        if (nd.laneId)       { patch['laneId']        = nd.laneId; patch['departmentId'] = nd.laneId; }
+        if (nd.departmentId)   patch['departmentId']  = nd.departmentId;
+        if (nd.assignedUserId) patch['assignedUserId'] = nd.assignedUserId;
+        if (nd.timeoutHours)   patch['timeoutHours']  = nd.timeoutHours;
+        if (nd.formSchema)     patch['formSchema']    = nd.formSchema;
+        if (nd.aiConfig)       patch['aiConfig']      = nd.aiConfig;
+
         node.addInfo = { ...(node.addInfo ?? {}), ...patch };
         this.diagram.dataBind();
-        this.workflow.update(w => w ? ({
-          ...w,
-          nodes: w.nodes.map(n => n.id === m.target_id ? { ...n, name: newName, ...(m.node_data!.laneId ? { laneId: m.node_data!.laneId } : {}) } : n),
-        }) : w);
+
+        // Sincronizar el signal del workflow (fuente de verdad del node-panel).
+        // Si el nodo aún no está en el array (nuevo nodo no guardado), lo añadimos
+        // para que resolveNodeData lo encuentre y devuelva el formSchema correcto.
+        this.workflow.update(w => {
+          if (!w) return w;
+          const exists = w.nodes.some(n => n.id === m.target_id);
+          if (exists) {
+            return {
+              ...w,
+              nodes: w.nodes.map(n => {
+                if (n.id !== m.target_id) return n;
+                return {
+                  ...n,
+                  ...(nd.name           && { name:           nd.name }),
+                  ...(nd.laneId         && { laneId:         nd.laneId, departmentId: nd.laneId }),
+                  ...(nd.departmentId   && { departmentId:   nd.departmentId }),
+                  ...(nd.assignedUserId && { assignedUserId: nd.assignedUserId }),
+                  ...(nd.timeoutHours   && { timeoutHours:   nd.timeoutHours }),
+                  ...(nd.formSchema     && { formSchema:     nd.formSchema }),
+                  ...(nd.aiConfig       && { aiConfig:       nd.aiConfig }),
+                };
+              }),
+            };
+          }
+          // Nodo nuevo (no guardado aún): crear entrada mínima en el signal
+          // para que resolveNodeData lo encuentre con los datos correctos
+          const newEntry: WorkflowNode = this.resolveNodeData(
+            m.target_id!,
+            node.addInfo as Record<string, unknown>,
+          ) ?? {
+            id: m.target_id!,
+            laneId: '',
+            name: nd.name ?? m.target_id!,
+            type: (nd.type ?? 'TASK') as WorkflowNode['type'],
+            status: 'PENDING',
+            shape: { type: '', shape: '' },
+            offsetX: 0, offsetY: 0, width: 160, height: 60,
+            annotations: [], ports: [],
+            ...(nd.formSchema && { formSchema: nd.formSchema }),
+          };
+          return { ...w, nodes: [...w.nodes, newEntry] };
+        });
+
+        // Actualizar explicitly el selectedNode si es el nodo destino
+        if (this.selectedNode()?.id === m.target_id) {
+          const refreshed = this.resolveNodeData(m.target_id!, node.addInfo);
+          if (refreshed) {
+            this.zone.run(() => {
+              this.selectedNode.set(refreshed);
+              this.cdr.detectChanges();
+            });
+          }
+        }
       });
 
     // ── 6. Añadir nodos nuevos

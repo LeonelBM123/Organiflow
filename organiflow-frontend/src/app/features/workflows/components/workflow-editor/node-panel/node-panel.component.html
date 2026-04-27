@@ -199,6 +199,66 @@
             </svg>
             Agregar campo
           </button>
+
+          <!-- Dictado de voz + Generar con IA -->
+          <div class="generate-row">
+            @if (isSpeechSupported()) {
+              <button
+                type="button"
+                class="btn-mic"
+                [class.btn-mic--recording]="isRecording()"
+                [disabled]="isGeneratingSchema()"
+                (click)="toggleRecording()"
+                [attr.aria-label]="isRecording() ? 'Detener dictado' : 'Dictar configuración del formulario'"
+                [attr.aria-pressed]="isRecording()">
+                @if (isRecording()) {
+                  <!-- Icono stop -->
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                    <rect x="4" y="4" width="16" height="16" rx="2"/>
+                  </svg>
+                } @else {
+                  <!-- Icono micrófono -->
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+                    <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                    <line x1="12" y1="19" x2="12" y2="23"/>
+                    <line x1="8" y1="23" x2="16" y2="23"/>
+                  </svg>
+                }
+              </button>
+            }
+            <button
+              type="button"
+              class="btn-generate-schema"
+              [disabled]="isGeneratingSchema()"
+              [attr.aria-busy]="isGeneratingSchema()"
+              (click)="generateSchema()"
+              aria-label="Generar campos del formulario con inteligencia artificial">
+              @if (isGeneratingSchema()) {
+                <span class="spinner-xs" aria-hidden="true"></span>
+                Generando...
+              } @else {
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/>
+                </svg>
+                Generar con IA
+              }
+            </button>
+          </div>
+
+          @if (voiceTranscript()) {
+            <p class="voice-transcript-preview" role="status" aria-live="polite">
+              <em>"{{ voiceTranscript() }}"</em>
+            </p>
+          }
+
+          @if (schemaError()) {
+            <p class="btn-generate-schema__error" role="alert">{{ schemaError() }}</p>
+          } @else if (!voiceTranscript()) {
+            <p class="btn-generate-schema__hint">
+              Dicta o escribe el nombre del nodo y pulsa "Generar con IA" para crear los campos automáticamente.
+            </p>
+          }
         </div>
 
         <!-- Configuración de IA -->

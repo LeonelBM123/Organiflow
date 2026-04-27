@@ -1,8 +1,17 @@
 <div class="editor-root">
 
-  <app-editor-toolbar [workflow]="workflow()" [saveStatus]="saveStatus()" [activeUsers]="activeUsers()"
-    [connectionStatus]="connectionStatus()" (saveClick)="saveGraph()" (publishClick)="openPublishDialog()"
-    (draftClick)="revertToDraft()" (archiveClick)="archiveWorkflow()"></app-editor-toolbar>
+  <app-editor-toolbar
+    [workflow]="workflow()"
+    [saveStatus]="saveStatus()"
+    [activeUsers]="activeUsers()"
+    [connectionStatus]="connectionStatus()"
+    [isAnalyzing]="isAnalyzing()"
+    (saveClick)="saveGraph()"
+    (publishClick)="openPublishDialog()"
+    (draftClick)="revertToDraft()"
+    (archiveClick)="archiveWorkflow()"
+    (analyzeClick)="analyzeWorkflow()">
+  </app-editor-toolbar>
 
   <div class="editor-body">
 
@@ -116,6 +125,134 @@
       (save)="onNodePropertiesSaved($event)"
       (close)="selectedNode.set(null)">
     </app-node-panel>
+
+    <!-- ── Panel de análisis IA ──────────────────────────────────────────── -->
+    @if (showAnalysisPanel()) {
+      <aside
+        class="analysis-panel"
+        role="complementary"
+        aria-label="Resultados del análisis del workflow"
+        aria-live="polite">
+
+        <div class="analysis-panel__header">
+          <h2 class="analysis-panel__title">Análisis del Workflow</h2>
+          <button
+            type="button"
+            class="analysis-panel__close"
+            (click)="closeAnalysisPanel()"
+            aria-label="Cerrar panel de análisis">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+        </div>
+
+        <div
+          class="analysis-panel__summary"
+          [class.analysis-panel__summary--valid]="analysisResult()!.isValid"
+          [class.analysis-panel__summary--invalid]="!analysisResult()!.isValid">
+          <p>{{ analysisResult()!.summary }}</p>
+        </div>
+
+        <div class="analysis-panel__body">
+
+          <!-- Errores críticos -->
+          @if (analysisErrors().length > 0) {
+            <section class="analysis-panel__section" aria-labelledby="ap-errors-heading">
+              <h3 id="ap-errors-heading" class="analysis-panel__section-title analysis-panel__section-title--error">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15" stroke="white" stroke-width="2"/><line x1="9" y1="9" x2="15" y2="15" stroke="white" stroke-width="2"/></svg>
+                Errores críticos ({{ analysisErrors().length }})
+              </h3>
+              <ul class="analysis-panel__list">
+                @for (error of analysisErrors(); track error.message) {
+                  <li
+                    class="analysis-panel__item analysis-panel__item--error"
+                    [class.analysis-panel__item--clickable]="!!error.nodeId"
+                    (click)="highlightNode(error.nodeId)"
+                    [attr.role]="error.nodeId ? 'button' : null"
+                    [attr.tabindex]="error.nodeId ? 0 : null"
+                    [attr.aria-label]="error.nodeId ? 'Ir al nodo con error' : null"
+                    (keydown.enter)="highlightNode(error.nodeId)">
+                    <p class="analysis-panel__item-message">{{ error.message }}</p>
+                    <p class="analysis-panel__item-suggestion">💡 {{ error.suggestion }}</p>
+                  </li>
+                }
+              </ul>
+            </section>
+          }
+
+          <!-- Advertencias -->
+          @if (analysisWarnings().length > 0) {
+            <section class="analysis-panel__section" aria-labelledby="ap-warnings-heading">
+              <h3 id="ap-warnings-heading" class="analysis-panel__section-title analysis-panel__section-title--warning">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13" stroke="white" stroke-width="2"/><line x1="12" y1="17" x2="12.01" y2="17" stroke="white" stroke-width="2"/></svg>
+                Advertencias ({{ analysisWarnings().length }})
+              </h3>
+              <ul class="analysis-panel__list">
+                @for (warn of analysisWarnings(); track warn.message) {
+                  <li
+                    class="analysis-panel__item analysis-panel__item--warning"
+                    [class.analysis-panel__item--clickable]="!!warn.nodeId"
+                    (click)="highlightNode(warn.nodeId)"
+                    [attr.role]="warn.nodeId ? 'button' : null"
+                    [attr.tabindex]="warn.nodeId ? 0 : null"
+                    (keydown.enter)="highlightNode(warn.nodeId)">
+                    <p class="analysis-panel__item-message">{{ warn.message }}</p>
+                    <p class="analysis-panel__item-suggestion">💡 {{ warn.suggestion }}</p>
+                  </li>
+                }
+              </ul>
+            </section>
+          }
+
+          <!-- Cuellos de botella -->
+          @if (analysisResult()!.bottlenecks.length > 0) {
+            <section class="analysis-panel__section" aria-labelledby="ap-bottlenecks-heading">
+              <h3 id="ap-bottlenecks-heading" class="analysis-panel__section-title analysis-panel__section-title--bottleneck">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="12" r="10"/></svg>
+                Cuellos de botella ({{ analysisResult()!.bottlenecks.length }})
+              </h3>
+              <ul class="analysis-panel__list">
+                @for (bn of analysisResult()!.bottlenecks; track bn.nodeId) {
+                  <li
+                    class="analysis-panel__item analysis-panel__item--bottleneck analysis-panel__item--clickable"
+                    (click)="highlightNode(bn.nodeId)"
+                    role="button"
+                    tabindex="0"
+                    [attr.aria-label]="'Ir al nodo: ' + (bn.nodeName ?? bn.nodeId)"
+                    (keydown.enter)="highlightNode(bn.nodeId)">
+                    @if (bn.nodeName) {
+                      <span class="analysis-panel__item-node-name">{{ bn.nodeName }}</span>
+                    }
+                    <p class="analysis-panel__item-message">{{ bn.reason }}</p>
+                    <p class="analysis-panel__item-suggestion">💡 {{ bn.suggestion }}</p>
+                  </li>
+                }
+              </ul>
+            </section>
+          }
+
+          <!-- Estado vacío: sin problemas -->
+          @if (analysisErrors().length === 0 && analysisWarnings().length === 0 && analysisResult()!.bottlenecks.length === 0) {
+            <div class="analysis-panel__empty">
+              <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+              </svg>
+              <p>El workflow no tiene errores ni advertencias.</p>
+            </div>
+          }
+
+        </div>
+      </aside>
+    }
+
+    <!-- Toast de error de conexión -->
+    @if (analysisError()) {
+      <div class="analysis-error-toast" role="alert" aria-live="assertive">
+        <span>{{ analysisError() }}</span>
+        <button type="button" (click)="analysisError.set(null)" aria-label="Cerrar notificación">✕</button>
+      </div>
+    }
 
     <app-connector-panel
       [connector]="selectedConnector()"
