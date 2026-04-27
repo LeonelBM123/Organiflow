@@ -6,6 +6,7 @@ export interface AiNodeSummary {
   id: string;
   name: string;
   type: string;
+  laneId?: string;
 }
 
 export interface AiEdgeSummary {
@@ -14,24 +15,36 @@ export interface AiEdgeSummary {
   targetId: string;
 }
 
+export interface AiLaneSummary {
+  id: string;
+  name: string;
+}
+
 export interface AiEditRequest {
   prompt: string;
   current_nodes: AiNodeSummary[];
   current_edges: AiEdgeSummary[];
+  current_lanes: AiLaneSummary[];
 }
 
 export interface AiMutation {
-  action: 'ADD_NODE' | 'UPDATE_NODE' | 'DELETE_NODE' | 'ADD_EDGE' | 'DELETE_EDGE';
+  action: 'ADD_NODE' | 'UPDATE_NODE' | 'DELETE_NODE' | 'ADD_EDGE' | 'DELETE_EDGE' | 'ADD_LANE' | 'UPDATE_LANE' | 'DELETE_LANE';
   target_id?: string;
   node_data?: {
     id: string;
     name: string;
     type?: string;
+    laneId?: string;
   };
   edge_data?: {
     id?: string;
     sourceId: string;
     targetId: string;
+    relationType?: string;
+  };
+  lane_data?: {
+    id?: string;
+    name: string;
   };
 }
 

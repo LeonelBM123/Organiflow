@@ -20,7 +20,8 @@ async def get_workflow_mutations(request: EditRequest):
         plan = await generate_mutations(
             prompt=request.prompt,
             nodes=request.current_nodes,
-            edges=request.current_edges
+            edges=request.current_edges,
+            lanes=request.current_lanes
         )
         return plan
     except Exception as e:

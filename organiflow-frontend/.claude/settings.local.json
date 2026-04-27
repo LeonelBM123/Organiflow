@@ -8,7 +8,8 @@
       "Bash(node -e \"const m=require\\('@syncfusion/ej2-angular-diagrams'\\); const keys=Object.keys\\(m\\).filter\\(k=>k.toLowerCase\\(\\).includes\\('undo'\\)||k.toLowerCase\\(\\).includes\\('print'\\)||k.toLowerCase\\(\\).includes\\('snap'\\)||k.toLowerCase\\(\\).includes\\('tool'\\)\\); console.log\\(keys.join\\('\\\\n'\\)\\)\")",
       "Bash(node -e \"const p = require\\('./node_modules/@syncfusion/ej2-diagrams/dist/es6/ej2-diagrams.es2015.js'\\); console.log\\('UndoRedo:', typeof p.UndoRedo\\);\")",
       "Bash(node -e \"const p = require\\('./node_modules/@syncfusion/ej2-angular-diagrams/src/diagram/diagram.module.js'\\); console.log\\(JSON.stringify\\(Object.keys\\(p\\)\\)\\);\")",
-      "Bash(curl -s http://localhost:4200/)"
+      "Bash(curl -s http://localhost:4200/)",
+      "Bash(npx tsc *)"
     ]
   }
 }

@@ -23,10 +23,10 @@ export const NODE_COLORS: Record<string, { fill: string; stroke: string; text: s
 };
 
 export const EDGE_COLORS: Record<string, string> = {
-  SEQUENTIAL: '#10b981',
-  CONDITIONAL: '#3b82f6',
-  ITERATIVE: '#f43f5e',
-  MERGE: '#8b5cf6',
+  SEQUENTIAL: '#334155',
+  CONDITIONAL: '#334155',
+  ITERATIVE: '#334155',
+  MERGE: '#334155',
 };
 
 export const LANE_PASTEL_COLORS = [
@@ -332,7 +332,7 @@ export class WorkflowMapper {
   }
 
   static getEdgeColor(relationType: string): string {
-    return EDGE_COLORS[relationType] ?? '#94A3B8';
+    return EDGE_COLORS[relationType] ?? '#334155';
   }
 
   // =========================================================================

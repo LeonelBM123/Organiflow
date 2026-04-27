@@ -1090,7 +1090,7 @@ export class WorkflowEditorComponent implements OnInit, AfterViewInit, OnDestroy
     const prompt = this.iaPrompt().trim();
     if (!prompt || this.isAiThinking()) return;
 
-    // Extraer estado lógico limpio: solo IDs, nombres y tipos — sin coordenadas
+    // Extraer estado lógico limpio: IDs, nombres, tipos y laneId — sin coordenadas
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const currentNodes = (this.diagram.nodes as any[])
       .filter(n => n.addInfo?.organiflowType)
@@ -1098,6 +1098,7 @@ export class WorkflowEditorComponent implements OnInit, AfterViewInit, OnDestroy
         id: n.id as string,
         name: (n.addInfo?.name || n.annotations?.[0]?.content || 'Sin nombre') as string,
         type: (n.addInfo?.organiflowType || 'TASK') as string,
+        laneId: (n.addInfo?.laneId || n.addInfo?.departmentId) as string | undefined,
       }));
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -1107,10 +1108,21 @@ export class WorkflowEditorComponent implements OnInit, AfterViewInit, OnDestroy
       targetId: c.targetID as string,
     }));
 
+    // Extraer carriles actuales del swimlane
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const swimlaneNode = (this.diagram.nodes as any[]).find(n => n.shape?.type === 'SwimLane');
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const currentLanes = ((swimlaneNode?.shape?.lanes ?? []) as any[]).map((lane: any) => {
+      const rawId = String(lane.id ?? '');
+      const laneId = rawId.startsWith('lane_') ? rawId.slice(5) : rawId;
+      const name = (lane.header?.annotation?.content || lane.header?.content || laneId) as string;
+      return { id: laneId, name };
+    });
+
     this.isAiThinking.set(true);
     this.cdr.detectChanges();
 
-    this.aiService.getMutations({ prompt, current_nodes: currentNodes, current_edges: currentEdges }).subscribe({
+    this.aiService.getMutations({ prompt, current_nodes: currentNodes, current_edges: currentEdges, current_lanes: currentLanes }).subscribe({
       next: (plan) => {
         console.log('[IA] Razonamiento:', plan.razonamiento);
         this.ejecutarMutacionesSyncfusion(plan.mutations);
@@ -1127,6 +1139,10 @@ export class WorkflowEditorComponent implements OnInit, AfterViewInit, OnDestroy
   }
 
   private ejecutarMutacionesSyncfusion(mutations: AiMutation[]): void {
+    // ── 0. Obtener el poolModel del swimlane una sola vez
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const poolModel = (this.diagram.nodes as any[]).find(n => n.shape?.type === 'SwimLane');
+
     // ── 1. Borrar primero (edges antes que nodes para evitar referencias huérfanas)
     mutations
       .filter(m => m.action === 'DELETE_EDGE' && m.target_id)
@@ -1142,7 +1158,63 @@ export class WorkflowEditorComponent implements OnInit, AfterViewInit, OnDestroy
         if (obj) this.diagram.remove(obj);
       });
 
-    // ── 2. Actualizar etiquetas de nodos existentes
+    // ── 2. Añadir carriles nuevos
+    mutations
+      .filter(m => m.action === 'ADD_LANE' && m.lane_data)
+      .forEach(m => {
+        if (!poolModel) return;
+        const laneData = m.lane_data!;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const existingCount = (poolModel.shape as any).lanes?.length ?? 0;
+        const pastelColors = ['#f4f7ff', '#f0fdf4', '#faf5ff', '#fffbeb', '#fef2f2', '#f0f9ff'];
+        const headerFill = pastelColors[existingCount % pastelColors.length];
+        const laneId = laneData.id ?? `lane_${crypto.randomUUID()}`;
+        // Syncfusion espera el id sin prefijo en lane_data; añadimos el prefijo internamente
+        const syncfusionId = laneId.startsWith('lane_') ? laneId : `lane_${laneId}`;
+
+        this.diagram.addLanes(poolModel, [{
+          id: syncfusionId,
+          width: 240,
+          header: {
+            height: 44,
+            annotation: { content: laneData.name, style: { fontSize: 11, bold: true, color: '#334155' } },
+            style: { fill: headerFill, strokeColor: '#e2e8f0' },
+          },
+          style: { fill: '#fafbfc', strokeColor: '#e2e8f0' },
+        }], existingCount);
+      });
+
+    // ── 3. Actualizar nombre de carriles existentes
+    mutations
+      .filter(m => m.action === 'UPDATE_LANE' && m.target_id && m.lane_data)
+      .forEach(m => {
+        const rawTargetId = m.target_id!;
+        const syncfusionId = rawTargetId.startsWith('lane_') ? rawTargetId : `lane_${rawTargetId}`;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const lane = this.diagram.getObject(`swimlane-main${syncfusionId}`) as any
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          ?? (poolModel?.shape?.lanes as any[])?.find((l: any) => l.id === syncfusionId);
+        if (!lane) return;
+        if (lane.header?.annotation) {
+          lane.header.annotation.content = m.lane_data!.name;
+        }
+        this.diagram.dataBind();
+      });
+
+    // ── 4. Eliminar carriles
+    mutations
+      .filter(m => m.action === 'DELETE_LANE' && m.target_id)
+      .forEach(m => {
+        const rawTargetId = m.target_id!;
+        const syncfusionId = rawTargetId.startsWith('lane_') ? rawTargetId : `lane_${rawTargetId}`;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const lane = (poolModel?.shape?.lanes as any[])?.find((l: any) => l.id === syncfusionId);
+        if (lane && poolModel) {
+          this.diagram.removeLane(poolModel, lane);
+        }
+      });
+
+    // ── 5. Actualizar nodos existentes
     mutations
       .filter(m => m.action === 'UPDATE_NODE' && m.target_id && m.node_data)
       .forEach(m => {
@@ -1153,23 +1225,111 @@ export class WorkflowEditorComponent implements OnInit, AfterViewInit, OnDestroy
         if (node.annotations?.length) {
           node.annotations[0].content = newName;
         }
-        node.addInfo = { ...(node.addInfo ?? {}), name: newName };
+        const patch: Record<string, unknown> = { name: newName };
+        // Si la IA indica cambio de carril, actualizar laneId
+        if (m.node_data!.laneId) {
+          patch['laneId'] = m.node_data!.laneId;
+          patch['departmentId'] = m.node_data!.laneId;
+        }
+        node.addInfo = { ...(node.addInfo ?? {}), ...patch };
         this.diagram.dataBind();
-        // Sincronizar en el signal
         this.workflow.update(w => w ? ({
           ...w,
-          nodes: w.nodes.map(n => n.id === m.target_id ? { ...n, name: newName } : n),
+          nodes: w.nodes.map(n => n.id === m.target_id ? { ...n, name: newName, ...(m.node_data!.laneId ? { laneId: m.node_data!.laneId } : {}) } : n),
         }) : w);
       });
 
-    // ── 3. Añadir nodos nuevos
+    // ── 6. Añadir nodos nuevos
+    // Acumular IDs de nodos que necesitan sincronización de carril (un solo setTimeout al final)
+    const nodeIdsToSyncLane: string[] = [];
+
+    const LANE_HDR_HEIGHT = 44;
+    const MAIN_HDR_WIDTH  = 44;
+    const LANE_WIDTH      = 240;
+    const NODE_STEP       = 100; // separación vertical entre nodos nuevos
+    const NODE_PADDING    = 80;  // margen desde el borde superior del contenido
+
     const nodeAdditions = mutations.filter(m => m.action === 'ADD_NODE' && m.node_data);
-    nodeAdditions.forEach((m, index) => {
+
+    // ── Máxima Y ocupada por nodos existentes en cada carril (coords canvas)
+    const existingMaxYPerLane = new Map<string, number>();
+    if (poolModel) {
+      const swimlaneTop = (poolModel.offsetY as number) - (poolModel.height as number) / 2;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ((poolModel.shape as any).lanes ?? [] as any[]).forEach((lane: any) => {
+        const rawId = String(lane.id ?? '');
+        const lid = rawId.startsWith('lane_') ? rawId.slice(5) : rawId;
+        // offsetY de los children es relativo al contenido del carril (desde su borde superior)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const children: any[] = lane.children ?? [];
+        const localMaxY = children.reduce((max: number, c: any) => {
+          return Math.max(max, ((c.offsetY as number) ?? 0) + ((c.height as number) ?? 60) / 2);
+        }, LANE_HDR_HEIGHT + 20);
+        existingMaxYPerLane.set(lid, swimlaneTop + localMaxY);
+      });
+    }
+
+    if (poolModel && nodeAdditions.length > 0) {
+      // ── Pre-cálculo: cuántos nodos nuevos van a cada carril
+      const newCountPerLane = new Map<string, number>();
+      nodeAdditions.forEach(m => {
+        const lid = m.node_data!.laneId;
+        if (lid) newCountPerLane.set(lid, (newCountPerLane.get(lid) ?? 0) + 1);
+      });
+
+      // ── Calcular alto total necesario y expandir swimlane si hace falta
+      const swimlaneTop = (poolModel.offsetY as number) - (poolModel.height as number) / 2;
+      let requiredHeight = poolModel.height as number;
+      newCountPerLane.forEach((count, lid) => {
+        const startY = existingMaxYPerLane.get(lid) ?? (swimlaneTop + LANE_HDR_HEIGHT + NODE_PADDING);
+        const bottomNeeded = startY + count * NODE_STEP + NODE_PADDING;
+        const swimlaneBottom = swimlaneTop + (poolModel.height as number);
+        if (bottomNeeded > swimlaneBottom) {
+          const extra = bottomNeeded - swimlaneBottom;
+          requiredHeight = Math.max(requiredHeight, (poolModel.height as number) + extra);
+        }
+      });
+
+      if (requiredHeight > (poolModel.height as number)) {
+        const newPhaseHeight = requiredHeight - LANE_HDR_HEIGHT;
+        poolModel.height = requiredHeight;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const phases: any[] = (poolModel.shape as any).phases ?? [];
+        if (phases.length > 0) phases[0].offset = newPhaseHeight;
+        this.diagram.dataBind();
+      }
+    }
+
+    // ── Índice de inserción por carril (independiente entre carriles)
+    const laneInsertIndex = new Map<string, number>();
+
+    nodeAdditions.forEach((m) => {
       const data = m.node_data!;
       const nodeType = data.type ?? 'TASK';
-      // Posición provisional — doLayout() la reorganizará al final
-      const x = 400 + index * 220;
-      const y = 200 + index * 120;
+      const laneId = data.laneId;
+
+      // Calcular posición dentro del carril si se especifica laneId
+      let x = 400;
+      let y = 200;
+
+      if (laneId && poolModel) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const lanes: any[] = poolModel.shape?.lanes ?? [];
+        const syncfusionLaneId = laneId.startsWith('lane_') ? laneId : `lane_${laneId}`;
+        const laneIndex = lanes.findIndex((l: { id: string }) => l.id === syncfusionLaneId);
+        if (laneIndex !== -1) {
+          const laneLocalX = MAIN_HDR_WIDTH + laneIndex * LANE_WIDTH + LANE_WIDTH / 2;
+          x = (poolModel.offsetX as number) - (poolModel.width as number) / 2 + laneLocalX;
+
+          // Índice por carril: nodos en el mismo carril se apilan uno bajo otro
+          const idx = laneInsertIndex.get(laneId) ?? 0;
+          laneInsertIndex.set(laneId, idx + 1);
+
+          const swimlaneTop = (poolModel.offsetY as number) - (poolModel.height as number) / 2;
+          const existingMaxY = existingMaxYPerLane?.get(laneId) ?? (swimlaneTop + LANE_HDR_HEIGHT + NODE_PADDING);
+          y = existingMaxY + (idx + 1) * NODE_STEP;
+        }
+      }
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const node = this.buildNodeFromType(nodeType, x, y) as Record<string, any> | null;
@@ -1178,22 +1338,28 @@ export class WorkflowEditorComponent implements OnInit, AfterViewInit, OnDestroy
       node['id'] = data.id;
       if (node['annotations']?.length) {
         node['annotations'][0].content = data.name;
-      } else if (node['addInfo']) {
-        node['addInfo']['name'] = data.name;
       }
       if (node['addInfo']) {
         node['addInfo']['name'] = data.name;
         node['addInfo']['organiflowType'] = nodeType;
+        if (laneId) {
+          node['addInfo']['laneId'] = laneId;
+          node['addInfo']['departmentId'] = laneId;
+        }
       }
 
       this.diagram.add(node);
 
-      // Registrar en el signal para que el NodePanel funcione
+      // Registrar para sync de carril en lote (evita múltiples dataBind superpuestos)
+      if (laneId && poolModel) {
+        nodeIdsToSyncLane.push(data.id);
+      }
+
       const newWorkflowNode: WorkflowNode = {
         id: data.id,
         name: data.name,
         type: nodeType as WorkflowNode['type'],
-        laneId: '',
+        laneId: laneId ?? '',
         status: 'PENDING',
         shape: { type: '', shape: '' },
         offsetX: x,
@@ -1209,24 +1375,43 @@ export class WorkflowEditorComponent implements OnInit, AfterViewInit, OnDestroy
       }) : w);
     });
 
-    // ── 4. Añadir conectores nuevos
+    // ── 7. Añadir conectores nuevos
     mutations
       .filter(m => m.action === 'ADD_EDGE' && m.edge_data)
       .forEach(m => {
         const edge = m.edge_data!;
+        const relationType = edge.relationType ?? 'SEQUENTIAL';
+        const color = WorkflowMapper.getEdgeColor(relationType);
+        const isDashed = relationType === 'CONDITIONAL' || relationType === 'ITERATIVE';
         this.diagram.add({
           id: edge.id ?? `edge-${crypto.randomUUID()}`,
           sourceID: edge.sourceId,
           targetID: edge.targetId,
           type: 'Orthogonal',
-          targetDecorator: { shape: 'Arrow' },
+          style: {
+            strokeColor: color,
+            strokeWidth: 2,
+            strokeDashArray: isDashed ? '6 3' : undefined,
+          },
+          targetDecorator: { shape: 'Arrow', style: { fill: color, strokeColor: color } },
+          addInfo: { relationType },
         });
       });
 
-    // ── 5. Reorganizar el canvas
-    this.diagram.doLayout();
+    // ── 8. Sincronizar carriles en un único tick asíncrono (evita múltiples dataBind)
+    // No llamamos doLayout() — ya calculamos posiciones por carril, llamarlo resetearía
+    // el viewport y causaría movimientos bruscos al hacer zoom/pan posterior.
+    if (nodeIdsToSyncLane.length > 0) {
+      setTimeout(() => {
+        nodeIdsToSyncLane.forEach(nodeId => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const added = this.diagram.getObject(nodeId) as any;
+          if (added) this.syncLaneFromParent(added);
+        });
+      }, 80);
+    }
 
-    // ── 6. Disparar auto-guardado
+    // ── 9. Disparar auto-guardado
     this.saveStatus.set('unsaved');
     this.saveSubject.next();
     this.collabChangeSubject.next();
