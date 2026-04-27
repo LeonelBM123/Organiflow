@@ -82,12 +82,16 @@ export class WorkflowEditorComponent implements OnInit, AfterViewInit, OnDestroy
   readonly saveStatus = signal<SaveStatus>('saved');
   readonly iaPrompt = signal('');
   readonly isAiThinking = signal(false);
+  readonly isRecording = signal(false);
+  readonly isSpeechSupported = signal(false);
 
   readonly activeUsers = this.collaborationService.activeUsers;
   readonly connectionStatus = this.collaborationService.connectionStatus;
   readonly remoteCursors = this.collaborationService.remoteCursors;
 
   private readonly diagramViewport = signal({ zoom: 1, hOffset: 0, vOffset: 0 });
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private recognition: any = null;
 
   readonly displayCursors = computed(() => {
     const { zoom, hOffset, vOffset } = this.diagramViewport();
@@ -183,9 +187,11 @@ export class WorkflowEditorComponent implements OnInit, AfterViewInit, OnDestroy
 
     this.setupCursorTracking();
     this.setupKeyboardNavigation();
+    this.initSpeechRecognition();
   }
 
   ngOnDestroy(): void {
+    this.recognition?.stop();
     this.destroy$.next();
     this.destroy$.complete();
     this.collaborationService.disconnect();
@@ -1094,6 +1100,41 @@ export class WorkflowEditorComponent implements OnInit, AfterViewInit, OnDestroy
   }
 
   // ── AI assistant ───────────────────────────────────────────────────────────
+
+  private initSpeechRecognition(): void {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const SR = (window as any)['SpeechRecognition'] ?? (window as any)['webkitSpeechRecognition'];
+    if (!SR) return;
+    this.isSpeechSupported.set(true);
+
+    this.recognition = new SR();
+    this.recognition.lang           = 'es-ES';
+    this.recognition.continuous     = false;
+    this.recognition.interimResults = true;
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    this.recognition.onresult = (event: any) => {
+      const transcript = Array.from(event.results as ArrayLike<SpeechRecognitionResult>)
+        .map(r => r[0].transcript)
+        .join('');
+      this.zone.run(() => this.iaPrompt.set(transcript));
+    };
+
+    this.recognition.onend  = () => this.zone.run(() => this.isRecording.set(false));
+    this.recognition.onerror = () => this.zone.run(() => this.isRecording.set(false));
+  }
+
+  toggleRecording(): void {
+    if (!this.recognition) return;
+    if (this.isRecording()) {
+      this.recognition.stop();
+    } else {
+      this.iaPrompt.set('');
+      this.recognition.start();
+      this.isRecording.set(true);
+      this.cdr.detectChanges();
+    }
+  }
 
   onIaPromptInput(event: Event): void {
     this.iaPrompt.set((event.target as HTMLInputElement).value);

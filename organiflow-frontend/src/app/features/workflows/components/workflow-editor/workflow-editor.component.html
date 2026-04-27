@@ -52,18 +52,45 @@
             <input
               class="ai-input"
               type="text"
-              placeholder="Ej: Agrega un paso de validación entre la tarea inicial y el fin..."
+              [placeholder]="isRecording() ? 'Escuchando...' : 'Ej: Agrega un paso de validación entre la tarea inicial y el fin...'"
               [value]="iaPrompt()"
               (input)="onIaPromptInput($event)"
               (keyup.enter)="pedirCambiosIA()"
-              [disabled]="isAiThinking()"
+              [disabled]="isAiThinking() || isRecording()"
               aria-label="Instrucción para el asistente IA"
+              [class.ai-input--listening]="isRecording()"
             />
+            @if (isSpeechSupported()) {
+              <button
+                class="ai-mic-btn"
+                type="button"
+                (click)="toggleRecording()"
+                [class.ai-mic-btn--recording]="isRecording()"
+                [disabled]="isAiThinking()"
+                [attr.aria-label]="isRecording() ? 'Detener grabación' : 'Hablar con el asistente'"
+                [attr.aria-pressed]="isRecording()"
+              >
+                @if (isRecording()) {
+                  <!-- Icono stop -->
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                    <rect x="4" y="4" width="16" height="16" rx="2"/>
+                  </svg>
+                } @else {
+                  <!-- Icono micrófono -->
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+                    <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                    <line x1="12" y1="19" x2="12" y2="23"/>
+                    <line x1="8" y1="23" x2="16" y2="23"/>
+                  </svg>
+                }
+              </button>
+            }
             <button
               class="ai-btn"
               type="button"
               (click)="pedirCambiosIA()"
-              [disabled]="isAiThinking() || !iaPrompt().trim()"
+              [disabled]="isAiThinking() || isRecording() || !iaPrompt().trim()"
               [attr.aria-busy]="isAiThinking()"
               aria-label="Aplicar cambios con IA"
             >
