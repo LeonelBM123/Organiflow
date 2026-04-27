@@ -32,6 +32,11 @@ REGLAS DE CARRILES (SWIMLANES):
 - Si el usuario pide renombrar un carril → usa UPDATE_LANE con target_id (el id del carril) y lane_data = {{ name }}.
 - Si el usuario pide eliminar un carril → usa DELETE_LANE con target_id (el id del carril).
 - Si el usuario pide asignar un nodo a un departamento → usa UPDATE_NODE con target_id y node_data.laneId = id del carril.
+- REGLA ESPECIAL — Carril "General" (id: "default"): este carril es un placeholder temporal que aparece
+  cuando el workflow no tiene departamentos reales. Si los "Carriles actuales" contienen un carril con
+  id "default" o nombre "General", Y la petición implica crear o usar carriles reales, DEBES incluir
+  al inicio de las mutations un DELETE_LANE con target_id "default" para eliminarlo. No lo elimines
+  si el usuario no está creando nuevos carriles o si es el único carril y no hay alternativa.
 
 REGLAS DE NODOS:
 - Para ADD_NODE: node_data debe incluir id (ej: node-uuid4), name, type (START/TASK/CONDITION/MERGE/END).
@@ -39,6 +44,39 @@ REGLAS DE NODOS:
   El laneId debe ser el id de uno de los carriles existentes (sin prefijo "lane_").
 - Para UPDATE_NODE: usa target_id y node_data con los campos a cambiar (nombre, laneId, etc.).
 - Para DELETE_NODE: usa target_id.
+
+REGLAS UML — DIAGRAMA DE ACTIVIDADES (obligatorias, nunca las violes):
+1. ÚNICO START: Solo puede existir UN nodo de tipo START en todo el diagrama. Si ya hay uno en
+   "Nodos", no crees otro. Si el usuario pide uno nuevo, reutiliza el existente o ignora la creación.
+2. ÚNICO END: Solo puede existir UN nodo de tipo END en todo el diagrama. Igual que START.
+3. FLUJO COMPLETO: Todo nodo nuevo debe quedar conectado al flujo. No dejes nodos huérfanos.
+   Si añades un nodo intermedio, añade también las edges necesarias para integrarlo al flujo.
+4. CONDITION (decisión): Un nodo CONDITION debe tener exactamente 1 edge entrante y al menos
+   2 edges salientes (cada rama representa un camino alternativo).
+5. MERGE (unión): Un nodo MERGE debe tener 2+ edges entrantes y exactamente 1 edge saliente.
+   Úsalo para reunir ramas paralelas o condicionales antes de continuar.
+6. ITERATOR: Representa un bucle. Tiene 1 edge entrante, 1 edge saliente que continúa el flujo,
+   y 1 edge de retorno hacia sí mismo o hacia el nodo anterior (relationType: ITERATIVE).
+7. START siempre tiene 0 edges entrantes y 1 edge saliente.
+8. END siempre tiene 1+ edges entrantes y 0 edges salientes.
+9. Si el diagrama ya tiene un flujo START→...→END y el usuario pide insertar un nodo intermedio,
+   elimina la edge existente entre los nodos adyacentes y crea dos nuevas edges pasando por el nuevo nodo.
+
+ORDEN DE LAS MUTACIONES — CRÍTICO PARA EL LAYOUT VISUAL:
+El canvas posiciona cada nodo nuevo DEBAJO del anterior dentro del mismo carril, en el orden
+exacto en que aparecen las mutaciones. Por eso el orden en que emites los ADD_NODE determina
+el orden visual de arriba hacia abajo. Debes seguir estas reglas de ordenación:
+
+A. Emite las mutaciones ADD_NODE en orden TOPOLÓGICO del flujo:
+   - START siempre primero (si se crea).
+   - Luego los nodos intermedios en el orden en que se ejecutarían (según el flujo de actividades).
+   - END siempre al último (si se crea).
+B. Dentro del mismo carril, los nodos que se ejecutan antes deben aparecer ANTES en la lista.
+C. Si hay ramas paralelas (CONDITION → rama A y rama B), emite los nodos de cada rama
+   intercalados por carril: todos los de rama A juntos, luego los de rama B.
+D. Emite los ADD_EDGE al final, después de todos los ADD_NODE, para que las referencias
+   a nodos recién creados ya existan.
+E. Nunca mezcles ADD_NODE de distintos pasos del flujo de forma aleatoria.
 
 REGLAS DE CONECTORES:
 - Para ADD_EDGE: edge_data debe incluir sourceId, targetId, y relationType (SEQUENTIAL/CONDITIONAL/ITERATIVE/MERGE).

@@ -1300,69 +1300,93 @@ export class WorkflowEditorComponent implements OnInit, AfterViewInit, OnDestroy
     const LANE_HDR_HEIGHT = 44;
     const MAIN_HDR_WIDTH  = 44;
     const LANE_WIDTH      = 240;
-    const NODE_STEP       = 100; // separación vertical entre nodos nuevos
-    const NODE_PADDING    = 80;  // margen desde el borde superior del contenido
+    const NODE_STEP       = 110; // separación vertical entre niveles de flujo
+    const NODE_PADDING    = 60;  // margen desde el borde superior del contenido
 
-    const nodeAdditions = mutations.filter(m => m.action === 'ADD_NODE' && m.node_data);
+    const nodeAdditions  = mutations.filter(m => m.action === 'ADD_NODE' && m.node_data);
+    const edgeAdditions  = mutations.filter(m => m.action === 'ADD_EDGE' && m.edge_data);
 
-    // ── Máxima Y ocupada por nodos existentes en cada carril (coords canvas)
-    const existingMaxYPerLane = new Map<string, number>();
-    if (poolModel) {
-      const swimlaneTop = (poolModel.offsetY as number) - (poolModel.height as number) / 2;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ((poolModel.shape as any).lanes ?? [] as any[]).forEach((lane: any) => {
-        const rawId = String(lane.id ?? '');
-        const lid = rawId.startsWith('lane_') ? rawId.slice(5) : rawId;
-        // offsetY de los children es relativo al contenido del carril (desde su borde superior)
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const children: any[] = lane.children ?? [];
-        const localMaxY = children.reduce((max: number, c: any) => {
-          return Math.max(max, ((c.offsetY as number) ?? 0) + ((c.height as number) ?? 60) / 2);
-        }, LANE_HDR_HEIGHT + 20);
-        existingMaxYPerLane.set(lid, swimlaneTop + localMaxY);
-      });
-    }
+    // ── BFS topológico para calcular el nivel de flujo de cada nodo nuevo ──────
+    // El nivel determina la posición Y: nivel 0 = más arriba, nivel N = más abajo.
+    // Construimos el grafo combinando edges existentes + edges nuevas (sin ITERATIVE
+    // para evitar ciclos). Luego hacemos BFS desde los nodos sin padres.
+    const bfsChildren = new Map<string, string[]>(); // id → hijos
+    const bfsParents  = new Map<string, string[]>(); // id → padres
 
-    if (poolModel && nodeAdditions.length > 0) {
-      // ── Pre-cálculo: cuántos nodos nuevos van a cada carril
-      const newCountPerLane = new Map<string, number>();
-      nodeAdditions.forEach(m => {
-        const lid = m.node_data!.laneId;
-        if (lid) newCountPerLane.set(lid, (newCountPerLane.get(lid) ?? 0) + 1);
-      });
+    const seedNode = (id: string) => {
+      if (!bfsChildren.has(id)) bfsChildren.set(id, []);
+      if (!bfsParents.has(id))  bfsParents.set(id,  []);
+    };
 
-      // ── Calcular alto total necesario y expandir swimlane si hace falta
-      const swimlaneTop = (poolModel.offsetY as number) - (poolModel.height as number) / 2;
-      let requiredHeight = poolModel.height as number;
-      newCountPerLane.forEach((count, lid) => {
-        const startY = existingMaxYPerLane.get(lid) ?? (swimlaneTop + LANE_HDR_HEIGHT + NODE_PADDING);
-        const bottomNeeded = startY + count * NODE_STEP + NODE_PADDING;
-        const swimlaneBottom = swimlaneTop + (poolModel.height as number);
-        if (bottomNeeded > swimlaneBottom) {
-          const extra = bottomNeeded - swimlaneBottom;
-          requiredHeight = Math.max(requiredHeight, (poolModel.height as number) + extra);
+    // Nodos existentes en el diagrama
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (this.diagram.nodes as any[]).filter(n => n.addInfo?.organiflowType).forEach(n => seedNode(n.id as string));
+    // Nodos nuevos
+    nodeAdditions.forEach(m => seedNode(m.node_data!.id));
+
+    const addEdgeToGraph = (src: string, tgt: string) => {
+      seedNode(src); seedNode(tgt);
+      bfsChildren.get(src)!.push(tgt);
+      bfsParents.get(tgt)!.push(src);
+    };
+
+    // Edges existentes (sin ITERATIVE → no crean ciclos en BFS)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (this.diagram.connectors as any[]).forEach(c => {
+      if (!c.sourceID || !c.targetID) return;
+      if ((c.addInfo as Record<string, unknown>)?.['relationType'] === 'ITERATIVE') return;
+      addEdgeToGraph(c.sourceID as string, c.targetID as string);
+    });
+    // Edges nuevas
+    edgeAdditions.forEach(m => {
+      if (m.edge_data!.relationType === 'ITERATIVE') return;
+      addEdgeToGraph(m.edge_data!.sourceId, m.edge_data!.targetId);
+    });
+
+    // BFS desde raíces (nodos sin padres)
+    const flowLevel = new Map<string, number>();
+    const bfsQueue: string[] = [];
+    bfsChildren.forEach((_, id) => {
+      if ((bfsParents.get(id)?.length ?? 0) === 0) {
+        flowLevel.set(id, 0);
+        bfsQueue.push(id);
+      }
+    });
+    while (bfsQueue.length > 0) {
+      const id = bfsQueue.shift()!;
+      const lvl = flowLevel.get(id) ?? 0;
+      for (const child of bfsChildren.get(id) ?? []) {
+        if ((flowLevel.get(child) ?? -1) < lvl + 1) {
+          flowLevel.set(child, lvl + 1);
+          bfsQueue.push(child);
         }
-      });
-
-      if (requiredHeight > (poolModel.height as number)) {
-        const newPhaseHeight = requiredHeight - LANE_HDR_HEIGHT;
-        poolModel.height = requiredHeight;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const phases: any[] = (poolModel.shape as any).phases ?? [];
-        if (phases.length > 0) phases[0].offset = newPhaseHeight;
-        this.diagram.dataBind();
       }
     }
 
-    // ── Índice de inserción por carril (independiente entre carriles)
-    const laneInsertIndex = new Map<string, number>();
+    // ── Expandir swimlane si el max nivel de flujo lo requiere ────────────────
+    if (poolModel && nodeAdditions.length > 0) {
+      const maxLevel = nodeAdditions.reduce((max, m) => {
+        return Math.max(max, flowLevel.get(m.node_data!.id) ?? 0);
+      }, 0);
+      const neededPhaseHeight = NODE_PADDING + (maxLevel + 1) * NODE_STEP + NODE_PADDING;
+      const MIN_PHASE = 520;
+      const targetPhase = Math.max(MIN_PHASE, neededPhaseHeight);
+      const currentPhase = (poolModel.height as number) - LANE_HDR_HEIGHT;
+
+      if (targetPhase > currentPhase) {
+        poolModel.height = LANE_HDR_HEIGHT + targetPhase;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const phases: any[] = (poolModel.shape as any).phases ?? [];
+        if (phases.length > 0) phases[0].offset = targetPhase;
+        this.diagram.dataBind();
+      }
+    }
 
     nodeAdditions.forEach((m) => {
       const data = m.node_data!;
       const nodeType = data.type ?? 'TASK';
       const laneId = data.laneId;
 
-      // Calcular posición dentro del carril si se especifica laneId
       let x = 400;
       let y = 200;
 
@@ -1375,13 +1399,10 @@ export class WorkflowEditorComponent implements OnInit, AfterViewInit, OnDestroy
           const laneLocalX = MAIN_HDR_WIDTH + laneIndex * LANE_WIDTH + LANE_WIDTH / 2;
           x = (poolModel.offsetX as number) - (poolModel.width as number) / 2 + laneLocalX;
 
-          // Índice por carril: nodos en el mismo carril se apilan uno bajo otro
-          const idx = laneInsertIndex.get(laneId) ?? 0;
-          laneInsertIndex.set(laneId, idx + 1);
-
+          // Y basada en nivel topológico del flujo (no en índice por carril)
           const swimlaneTop = (poolModel.offsetY as number) - (poolModel.height as number) / 2;
-          const existingMaxY = existingMaxYPerLane?.get(laneId) ?? (swimlaneTop + LANE_HDR_HEIGHT + NODE_PADDING);
-          y = existingMaxY + (idx + 1) * NODE_STEP;
+          const level = flowLevel.get(data.id) ?? 0;
+          y = swimlaneTop + LANE_HDR_HEIGHT + NODE_PADDING + level * NODE_STEP;
         }
       }
 
