@@ -122,7 +122,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                 ?.toString() ??
                             'Credenciales incorrectas.';
 
-                        // Toast de error (Destructive usa colores rojos en Shadcn)
                         ShadToaster.of(context).show(
                           ShadToast.destructive(
                             title: const Text('Error de Autenticación'),

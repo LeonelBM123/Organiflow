@@ -119,7 +119,7 @@
 
     <app-node-panel
       [node]="selectedNode()"
-      [departments]="departments()"
+      [departments]="panelDepartments()"
       [users]="tenantUsers()"
       [class.open]="!!selectedNode()"
       (save)="onNodePropertiesSaved($event)"

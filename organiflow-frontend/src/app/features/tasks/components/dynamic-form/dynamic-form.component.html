@@ -1,7 +1,44 @@
 @if (form()) {
   <form [formGroup]="form()!" (ngSubmit)="onSubmit()" class="dynamic-form" novalidate [attr.aria-label]="schema().name">
 
-    <div class="form-title">{{ schema().name }}</div>
+    <div class="form-header">
+      <div class="form-title">{{ schema().name }}</div>
+
+      @if (isSpeechSupported && !isReadonly()) {
+        <div class="voice-fill-bar">
+          <button
+            type="button"
+            class="voice-btn"
+            [class.voice-btn--recording]="isRecording()"
+            [class.voice-btn--thinking]="isAiFillingForm()"
+            [disabled]="isAiFillingForm()"
+            (click)="toggleVoice()"
+            [attr.aria-label]="isRecording() ? 'Detener grabación' : 'Rellenar con voz'"
+            [attr.aria-pressed]="isRecording()">
+            @if (isAiFillingForm()) {
+              <span class="voice-spinner" aria-hidden="true"></span>
+              Procesando...
+            } @else if (isRecording()) {
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                <rect x="4" y="4" width="16" height="16" rx="2"/>
+              </svg>
+              Escuchando...
+            } @else {
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+                <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                <line x1="12" y1="19" x2="12" y2="23"/>
+                <line x1="8" y1="23" x2="16" y2="23"/>
+              </svg>
+              Rellenar con voz
+            }
+          </button>
+          @if (voiceError()) {
+            <span class="voice-error" role="alert">{{ voiceError() }}</span>
+          }
+        </div>
+      }
+    </div>
 
     <div class="fields-grid">
       @for (field of sortedFields(); track field.name) {

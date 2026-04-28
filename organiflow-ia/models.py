@@ -150,6 +150,19 @@ class OrganiflowLane(BaseModel):
     name: str = Field(description="Nombre del carril o departamento")
 
 
+ConditionOperator = Literal["==", "!=", ">", "<", ">=", "<=", "contains"]
+
+
+class ConditionRule(BaseModel):
+    """Regla de condición para un conector CONDITIONAL."""
+
+    model_config = {"populate_by_name": True}
+
+    field: str = Field(description="Nombre del campo del formulario a evaluar")
+    operator: ConditionOperator = Field(description="Operador de comparación")
+    value: Any = Field(description="Valor esperado para activar este camino")
+
+
 class OrganiflowEdge(BaseModel):
     """Conector entre dos nodos del workflow."""
 
@@ -164,6 +177,16 @@ class OrganiflowEdge(BaseModel):
         alias="relationType",
         description="Tipo de relación entre nodos",
     )
+    source_handle: Optional[str] = Field(
+        default=None,
+        alias="sourceHandle",
+        description="Puerto o lado de salida del nodo origen (ej: 'left', 'right')",
+    )
+    condition_rule: Optional[ConditionRule] = Field(
+        default=None,
+        alias="conditionRule",
+        description="Regla de condición para edges de tipo CONDITIONAL",
+    )
 
     model_config = {"populate_by_name": True}
 
@@ -174,7 +197,7 @@ class OrganiflowEdge(BaseModel):
 
 MutationAction = Literal[
     "ADD_NODE", "UPDATE_NODE", "DELETE_NODE",
-    "ADD_EDGE", "DELETE_EDGE",
+    "ADD_EDGE", "UPDATE_EDGE", "DELETE_EDGE",
     "ADD_LANE", "UPDATE_LANE", "DELETE_LANE",
 ]
 
@@ -229,6 +252,10 @@ class EditRequest(BaseModel):
     current_lanes: List[dict[str, Any]] = Field(
         default_factory=list,
         description="Estado actual de los carriles del diagrama",
+    )
+    available_departments: List[dict[str, Any]] = Field(
+        default_factory=list,
+        description="Departamentos registrados en la BD disponibles para crear carriles",
     )
 
 
@@ -313,7 +340,7 @@ class NodeSchemaRequest(BaseModel):
     )
     department_name: Optional[str] = Field(
         default=None,
-        description="Nombre del departamento responsable (para contextualizar los campos)",
+        description="Nombre del departamento actualmente seleccionado (para contextualizar los campos)",
     )
     language: str = Field(
         default="es",
@@ -327,6 +354,10 @@ class NodeSchemaRequest(BaseModel):
             "determinar qué campos generar."
         ),
     )
+    available_departments: List[dict[str, Any]] = Field(
+        default_factory=list,
+        description="Lista de departamentos registrados en la BD ({id, name}) para sugerir asignación",
+    )
 
 
 class NodeSchemaResponse(BaseModel):
@@ -338,5 +369,44 @@ class NodeSchemaResponse(BaseModel):
         description="Esquema de formulario generado y listo para usar en el node-panel"
     )
     reasoning: str = Field(
-        description="Justificación de los campos elegidos"
+        description="Justificación de los campos elegidos y del departamento sugerido"
+    )
+    suggested_department_id: Optional[str] = Field(
+        default=None,
+        description="ID del departamento más adecuado para este nodo, tomado de available_departments",
+    )
+
+
+# ---------------------------------------------------------------------------
+# Modelos para relleno de formulario por voz
+# ---------------------------------------------------------------------------
+
+class FillFormRequest(BaseModel):
+    """Payload para solicitar el relleno de un formulario a partir de un transcript de voz."""
+
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
+    transcript: str = Field(
+        description="Texto transcrito de lo que dijo el funcionario"
+    )
+    form_schema: FormSchema = Field(
+        description="Esquema del formulario con los campos ya definidos"
+    )
+    language: str = Field(
+        default="es",
+        description="Idioma del transcript y de las opciones (es/en)",
+    )
+
+
+class FillFormResponse(BaseModel):
+    """Valores extraídos del transcript para cada campo del formulario."""
+
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
+    fields: dict[str, Any] = Field(
+        description="Mapa de nombre_de_campo → valor extraído del transcript"
+    )
+    unfillable_fields: list[str] = Field(
+        default_factory=list,
+        description="Campos cuyos valores no pudieron determinarse a partir del transcript",
     )

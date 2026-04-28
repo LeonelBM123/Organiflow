@@ -31,7 +31,7 @@ export class SymbolPaletteComponent {
         { id: 'sym-start', nodeType: 'START', label: 'Inicio', tooltip: 'Nodo de inicio del proceso' },
         { id: 'sym-task', nodeType: 'TASK', label: 'Tarea', tooltip: 'Tarea asignada a un departamento' },
         { id: 'sym-condition', nodeType: 'CONDITION', label: 'Decisión', tooltip: 'Punto de decisión condicional' },
-        { id: 'sym-iterator', nodeType: 'ITERATOR', label: 'Iterador', tooltip: 'Tarea en bucle' },
+        // { id: 'sym-iterator', nodeType: 'ITERATOR', label: 'Iterador', tooltip: 'Tarea en bucle' },
         { id: 'sym-merge', nodeType: 'MERGE', label: 'Unión', tooltip: 'Converge múltiples flujos' },
         { id: 'sym-end', nodeType: 'END', label: 'Fin', tooltip: 'Nodo final del proceso' },
       ],

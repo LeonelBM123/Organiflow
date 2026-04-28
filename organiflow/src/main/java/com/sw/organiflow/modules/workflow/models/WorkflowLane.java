@@ -14,4 +14,5 @@ public class WorkflowLane {
     private Integer height;     // Syncfusion
     private String color;       // Syncfusion
     private Integer sortOrder;
+    private String linkedDepartmentId;   // null si no está vinculado a un Department real
 }

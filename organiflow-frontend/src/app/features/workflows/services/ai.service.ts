@@ -10,6 +10,7 @@ import {
   FormSchema,
   AiConfig,
 } from '../models/workflow.model';
+import { AiFillFormRequest, AiFillFormResponse } from '../../tasks/models/task.model';
 
 // ---- Tipos de request/response para el endpoint /mutations ----
 
@@ -21,9 +22,11 @@ export interface AiNodeSummary {
 }
 
 export interface AiEdgeSummary {
-  id:       string;
-  sourceId: string;
-  targetId: string;
+  id:             string;
+  sourceId:       string;
+  targetId:       string;
+  relationType?:  string;
+  conditionRule?: { field: string; operator: string; value: unknown } | null;
 }
 
 export interface AiLaneSummary {
@@ -32,14 +35,17 @@ export interface AiLaneSummary {
 }
 
 export interface AiEditRequest {
-  prompt:        string;
-  current_nodes: AiNodeSummary[];
-  current_edges: AiEdgeSummary[];
-  current_lanes: AiLaneSummary[];
+  prompt:                 string;
+  current_nodes:          AiNodeSummary[];
+  current_edges:          AiEdgeSummary[];
+  current_lanes:          AiLaneSummary[];
+  available_departments?: { id: string; name: string }[];
 }
 
 export interface AiMutation {
-  action: 'ADD_NODE' | 'UPDATE_NODE' | 'DELETE_NODE' | 'ADD_EDGE' | 'DELETE_EDGE' | 'ADD_LANE' | 'UPDATE_LANE' | 'DELETE_LANE';
+  action: 'ADD_NODE' | 'UPDATE_NODE' | 'DELETE_NODE'
+        | 'ADD_EDGE' | 'UPDATE_EDGE' | 'DELETE_EDGE'
+        | 'ADD_LANE' | 'UPDATE_LANE' | 'DELETE_LANE';
   target_id?: string;
   node_data?: {
     id:              string;
@@ -52,7 +58,14 @@ export interface AiMutation {
     formSchema?:     FormSchema;
     aiConfig?:       AiConfig;
   };
-  edge_data?: { id?: string; sourceId: string; targetId: string; relationType?: string };
+  edge_data?: {
+    id?:             string;
+    sourceId:        string;
+    targetId:        string;
+    relationType?:   string;
+    sourceHandle?:   string;
+    conditionRule?:  { field: string; operator: string; value: unknown };
+  };
   lane_data?: { id?: string; name: string };
 }
 
@@ -81,5 +94,10 @@ export class AiService {
   /** Genera un FormSchema para un nodo dado su tipo y contexto de proceso. */
   generateSchema(request: NodeSchemaRequest): Observable<NodeSchemaResponse> {
     return this.http.post<NodeSchemaResponse>(`${this.baseUrl}/generate-schema`, request);
+  }
+
+  /** Extrae valores de formulario a partir de un transcript de voz del funcionario. */
+  fillForm(request: AiFillFormRequest): Observable<AiFillFormResponse> {
+    return this.http.post<AiFillFormResponse>(`${this.baseUrl}/fill-form`, request);
   }
 }

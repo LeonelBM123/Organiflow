@@ -28,6 +28,7 @@ class MutationService:
         nodes: list[dict[str, Any]],
         edges: list[dict[str, Any]],
         lanes: list[dict[str, Any]],
+        available_departments: list[dict[str, Any]] | None = None,
     ) -> MutationPlan:
         """Genera un plan de mutaciones para el diagrama a partir del prompt del usuario.
 
@@ -36,6 +37,7 @@ class MutationService:
             nodes: Estado actual de los nodos del diagrama.
             edges: Estado actual de los conectores del diagrama.
             lanes: Estado actual de los carriles del diagrama.
+            available_departments: Departamentos registrados en la BD (únicos válidos para ADD_LANE).
 
         Returns:
             MutationPlan validado con las mutaciones a aplicar.
@@ -50,6 +52,7 @@ class MutationService:
             f"Carriles actuales (Departamentos): {json.dumps(lanes, ensure_ascii=False)}\n"
             f"Nodos: {json.dumps(nodes, ensure_ascii=False)}\n"
             f"Conectores: {json.dumps(edges, ensure_ascii=False)}\n\n"
+            f"DEPARTAMENTOS DISPONIBLES EN LA BD: {json.dumps(available_departments or [], ensure_ascii=False)}\n\n"
             f"PETICIÓN DEL USUARIO: {prompt}"
         )
 

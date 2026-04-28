@@ -22,7 +22,7 @@ import { DepartmentService } from '../../../departments/services/department.serv
 import { Department } from '../../../departments/models/department.model';
 import { UserService, UserSummary } from '../../../../core/services/user.service';
 import { WorkflowResponse, WorkflowNode, WorkflowSaveRequest, WorkflowAnalysisResult } from '../../models/workflow.model';
-import { AiService, AiMutation } from '../../services/ai.service';
+import { AiService, AiMutation, AiEdgeSummary } from '../../services/ai.service';
 import { EditorToolbarComponent } from './toolbar/editor-toolbar.component';
 import { SymbolPaletteComponent } from './symbol-palette/symbol-palette.component';
 import { NodePanelComponent } from './node-panel/node-panel.component';
@@ -73,6 +73,8 @@ export class WorkflowEditorComponent implements OnInit, AfterViewInit, OnDestroy
   readonly workflow = signal<WorkflowResponse | null>(null);
   readonly selectedNode = signal<WorkflowNode | null>(null);
   readonly departments = signal<Department[]>([]);
+  readonly canvasLanes = signal<{ id: string; name: string }[]>([]);
+  readonly panelDepartments = computed<Department[]>(() => this.departments());
   readonly tenantUsers = signal<UserSummary[]>([]);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   readonly selectedConnector = signal<any | null>(null);
@@ -218,6 +220,7 @@ export class WorkflowEditorComponent implements OnInit, AfterViewInit, OnDestroy
     this.workflowService.findById(this.workflowId()).subscribe({
       next: (workflow) => {
         this.workflow.set(workflow);
+        this.canvasLanes.set(workflow.lanes.map(l => ({ id: l.id, name: l.name })));
         // Keep the diagram host hidden until the swimlane has rendered and
         // fitToPage has run — prevents the "white square" flash and the jump.
         this.isInitializingDiagram.set(true);
@@ -365,6 +368,23 @@ export class WorkflowEditorComponent implements OnInit, AfterViewInit, OnDestroy
       }
     }
 
+    // Enriquecer lanes: preservar linkedDepartmentId existente o auto-detectar por nombre
+    const stateLanes   = this.workflow()?.lanes ?? [];
+    const backendDepts = this.departments();
+    request.lanes = request.lanes.map(lane => {
+      const existing = stateLanes.find(sl => sl.id === lane.id);
+      if (existing?.linkedDepartmentId) {
+        return { ...lane, linkedDepartmentId: existing.linkedDepartmentId };
+      }
+      const byId = backendDepts.find(d => d.id === lane.id);
+      if (byId) {
+        return { ...lane, linkedDepartmentId: byId.id };
+      }
+      const byName = backendDepts.find(
+        d => d.name.toLowerCase() === lane.name.toLowerCase()
+      );
+      return { ...lane, linkedDepartmentId: byName?.id ?? null };
+    });
 
     this.isSaving.set(true);
     this.saveStatus.set('saving');
@@ -817,8 +837,10 @@ export class WorkflowEditorComponent implements OnInit, AfterViewInit, OnDestroy
             shape: 'InitialNode',
           },
           style: {
-            fill: '#444',
-            strokeColor: '#444',
+            fill: '#22c55e',
+            strokeColor: '#16a34a',
+
+            strokeWidth: 2,
           },
           addInfo: {
             ...base.addInfo,
@@ -836,8 +858,9 @@ export class WorkflowEditorComponent implements OnInit, AfterViewInit, OnDestroy
             shape: 'FinalNode',
           },
           style: {
-            fill: '#444',
-            strokeColor: '#444',
+            fill: '#ef4444',
+            strokeColor: '#b91c1c',
+            strokeWidth: 2,
           },
           addInfo: {
             ...base.addInfo,
@@ -846,25 +869,37 @@ export class WorkflowEditorComponent implements OnInit, AfterViewInit, OnDestroy
         };
 
       case 'TASK':
-        return {
-          ...base,
-          width: 160,
-          height: 60,
-          shape: {
-            type: 'UmlActivity',
-            shape: 'Action',
-          },
-          annotations: [
-            {
-              content: 'Sin título',
-              style: {
-                color: colors.text,
-                fontSize: 11,
-                bold: true,
-              },
-            },
-          ],
-        };
+  return {
+    ...base,
+    width: 170,
+    height: 64,
+    shape: {
+      type: 'UmlActivity',
+      shape: 'Action',
+    },
+    style: {
+  fill: '#ffffff',
+  strokeColor: '#3b82f6',
+  strokeWidth: 2,
+},
+    annotations: [
+      {
+        content: 'Sin título',
+        style: {
+          color: '#0f172a',
+          fontSize: 12,
+          bold: true,
+          fontFamily: 'Inter, Arial, sans-serif',
+        },
+      },
+    ],
+    shadow: {
+  angle: 45,
+  distance: 6,
+  opacity: 0.12,
+  color: '#000000',
+},
+  };
 
       case 'ITERATOR':
         return {
@@ -888,16 +923,45 @@ export class WorkflowEditorComponent implements OnInit, AfterViewInit, OnDestroy
         };
 
       case 'CONDITION':
-        return {
-          ...base,
-          width: 50,
-          height: 50,
-          shape: {
-            type: 'UmlActivity',
-            shape: 'Decision',
+      return {
+        ...base,
+        width: 78,
+        height: 78,
+        shape: {
+          type: 'UmlActivity',
+          shape: 'Decision',
+        },
+        style: {
+          fill: '#fff7ed',
+          strokeColor: '#fb923c',
+          strokeWidth: 2,
+        },
+        annotations: [
+          {
+            content: '¿Condición?',
+            style: {
+              color: '#7c2d12',
+              fontSize: 11,
+              bold: true,
+              fontFamily: 'Inter, Arial, sans-serif',
+            },
+            offset: {
+              x: 0.5,
+              y: 0.5,
+            },
           },
-        };
-
+        ],
+        shadow: {
+          angle: 45,
+          distance: 4,
+          opacity: 0.16,
+          color: '#000000',
+        },
+        addInfo: {
+          ...base.addInfo,
+          name: 'Decisión',
+        },
+      };
       case 'MERGE':
         return {
           ...base,
@@ -913,36 +977,72 @@ export class WorkflowEditorComponent implements OnInit, AfterViewInit, OnDestroy
           },
         };
       case 'SWIMLANE':
-        return {
-          id,
-          offsetX: x,
-          offsetY: y,
-          // 1. Invertimos las dimensiones por defecto para que sea vertical (alto y angosto)
-          width: 300,
-          height: 500,
-          shape: {
-            type: 'SwimLane',
-            // 2. AQUÍ ESTÁ LA MAGIA: Cambiamos la orientación
-            orientation: 'Vertical',
-            header: {
-              annotation: { content: 'Título del Proceso' },
-              width: 44, // Vertical orientation: header bar runs along the left side
+  return {
+    id,
+    offsetX: x,
+    offsetY: y,
+    width: 330,
+    height: 540,
+    shape: {
+      type: 'SwimLane',
+      orientation: 'Vertical',
+      header: {
+        annotation: {
+          content: 'Título del Proceso',
+          style: {
+            color: '#0f172a',
+            fontSize: 13,
+            bold: true,
+            fontFamily: 'Inter, Arial, sans-serif',
+          },
+        },
+        width: 48,
+        style: {
+          fill: '#e0f2fe',
+          strokeColor: '#93c5fd',
+          strokeWidth: 1,
+        },
+      },
+      lanes: [
+        {
+          id: `lane_${crypto.randomUUID()}`,
+          header: {
+            annotation: {
+              content: 'Departamento',
+              style: {
+                color: '#334155',
+                fontSize: 12,
+                bold: true,
+                fontFamily: 'Inter, Arial, sans-serif',
+              },
             },
-            lanes: [
-              {
-                id: `lane_${crypto.randomUUID()}`,
-                // 3. En Vertical, la cabecera del carril ocupa el alto, no el ancho
-                header: { annotation: { content: 'Departamento' }, height: 40 }
-              }
-            ]
+            height: 42,
+            style: {
+              fill: '#f8fafc',
+              strokeColor: '#cbd5e1',
+              strokeWidth: 1,
+            },
           },
-          addInfo: {
-            organiflowType: nodeType,
-            name: 'Contenedor',
-            status: 'PENDING',
-            laneId: '',
+          style: {
+            fill: '#ffffff',
+            strokeColor: '#e2e8f0',
+            strokeWidth: 1,
           },
-        };
+        },
+      ],
+    },
+    style: {
+      fill: '#ffffff',
+      strokeColor: '#cbd5e1',
+      strokeWidth: 1.2,
+    },
+    addInfo: {
+      organiflowType: nodeType,
+      name: 'Contenedor',
+      status: 'PENDING',
+      laneId: '',
+    },
+  };
       default:
         return null;
     }
@@ -1168,12 +1268,16 @@ export class WorkflowEditorComponent implements OnInit, AfterViewInit, OnDestroy
       }));
   }
 
-  private _extractEdgesForAi(): { id: string; sourceId: string; targetId: string }[] {
+  private _extractEdgesForAi(): AiEdgeSummary[] {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return (this.diagram.connectors as any[]).map(c => ({
-      id:       c.id as string,
-      sourceId: c.sourceID as string,
-      targetId: c.targetID as string,
+      id:            c.id as string,
+      sourceId:      c.sourceID as string,
+      targetId:      c.targetID as string,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      relationType:  (c.addInfo as any)?.relationType ?? 'SEQUENTIAL',
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      conditionRule: (c.addInfo as any)?.conditionRule ?? null,
     }));
   }
 
@@ -1245,9 +1349,10 @@ export class WorkflowEditorComponent implements OnInit, AfterViewInit, OnDestroy
 
     this.aiService.getMutations({
       prompt,
-      current_nodes: this._extractNodesForAi(),
-      current_edges: this._extractEdgesForAi(),
-      current_lanes: this._extractLanesForAi(),
+      current_nodes:         this._extractNodesForAi(),
+      current_edges:         this._extractEdgesForAi(),
+      current_lanes:         this._extractLanesForAi(),
+      available_departments: this.departments().map(d => ({ id: d.id, name: d.name })),
     }).pipe(
       finalize(() => {
         this.isAiThinking.set(false);
@@ -1289,6 +1394,27 @@ export class WorkflowEditorComponent implements OnInit, AfterViewInit, OnDestroy
         if (obj) this.diagram.remove(obj);
       });
 
+    // ── 1b. Actualizar regla de condición en conectores existentes
+    mutations
+      .filter(m => m.action === 'UPDATE_EDGE' && m.target_id && m.edge_data?.conditionRule)
+      .forEach(m => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const connector = this.diagram.getObject(m.target_id!) as any;
+        if (!connector) return;
+
+        const rule = m.edge_data!.conditionRule!;
+        if (!connector.addInfo) connector.addInfo = {};
+        connector.addInfo.conditionRule = rule;
+        connector.addInfo.relationType  = 'CONDITIONAL';
+
+        const color = WorkflowMapper.getEdgeColor('CONDITIONAL');
+        connector.style = { ...(connector.style ?? {}), strokeColor: color, strokeWidth: 2 };
+        if (connector.targetDecorator) {
+          connector.targetDecorator.style = { fill: color, strokeColor: color };
+        }
+        this.diagram.dataBind();
+      });
+
     // ── 2. Añadir carriles nuevos
     mutations
       .filter(m => m.action === 'ADD_LANE' && m.lane_data)
@@ -1313,6 +1439,7 @@ export class WorkflowEditorComponent implements OnInit, AfterViewInit, OnDestroy
           },
           style: { fill: '#fafbfc', strokeColor: '#e2e8f0' },
         }], existingCount);
+        this.canvasLanes.update(ls => [...ls, { id: laneId, name: laneData.name }]);
       });
 
     // ── 3. Actualizar nombre de carriles existentes
@@ -1330,6 +1457,10 @@ export class WorkflowEditorComponent implements OnInit, AfterViewInit, OnDestroy
           lane.header.annotation.content = m.lane_data!.name;
         }
         this.diagram.dataBind();
+        const canonicalUpdateId = rawTargetId.startsWith('lane_') ? rawTargetId.slice(5) : rawTargetId;
+        this.canvasLanes.update(ls =>
+          ls.map(l => l.id === canonicalUpdateId ? { ...l, name: m.lane_data!.name } : l)
+        );
       });
 
     // ── 4. Eliminar carriles
@@ -1342,6 +1473,8 @@ export class WorkflowEditorComponent implements OnInit, AfterViewInit, OnDestroy
         const lane = (poolModel?.shape?.lanes as any[])?.find((l: any) => l.id === syncfusionId);
         if (lane && poolModel) {
           this.diagram.removeLane(poolModel, lane);
+          const canonicalDeleteId = rawTargetId.startsWith('lane_') ? rawTargetId.slice(5) : rawTargetId;
+          this.canvasLanes.update(ls => ls.filter(l => l.id !== canonicalDeleteId));
         }
       });
 
@@ -1596,6 +1729,7 @@ export class WorkflowEditorComponent implements OnInit, AfterViewInit, OnDestroy
           id: edge.id ?? `edge-${crypto.randomUUID()}`,
           sourceID: edge.sourceId,
           targetID: edge.targetId,
+          ...(edge.sourceHandle ? { sourcePortID: edge.sourceHandle } : {}),
           type: 'Orthogonal',
           style: {
             strokeColor: color,

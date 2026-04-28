@@ -11,6 +11,7 @@ export interface WorkflowLane {
   height: number;
   color: string;
   sortOrder: number;
+  linkedDepartmentId?: string | null;
 }
 
 export interface FormField {
@@ -182,14 +183,16 @@ export interface WorkflowAnalysisRequest {
 // ============================================================
 
 export interface NodeSchemaRequest {
-  node_type:         NodeType;
-  context:           string;
-  department_name?:  string;
-  language:          string;
-  voice_transcript?: string;
+  node_type:              NodeType;
+  context:                string;
+  department_name?:       string;
+  language:               string;
+  voice_transcript?:      string;
+  available_departments?: { id: string; name: string }[];
 }
 
 export interface NodeSchemaResponse {
-  formSchema: FormSchema;
-  reasoning:  string;
+  formSchema:              FormSchema;
+  reasoning:               string;
+  suggestedDepartmentId?:  string | null;
 }

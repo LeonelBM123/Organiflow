@@ -40,10 +40,26 @@ REGLAS ESTRICTAS:
 REGLAS DE CARRILES (SWIMLANES):
 - Cada carril representa un departamento o área de la empresa.
 - Los carriles disponibles están en "Carriles actuales". Úsalos para asignar laneId a los nodos.
-- Si el usuario pide crear un nuevo departamento/área/carril → usa ADD_LANE con lane_data = {{ id, name }}.
+- Si el usuario pide crear un nuevo departamento/área/carril → usa ADD_LANE ÚNICAMENTE si ese
+  departamento aparece en "DEPARTAMENTOS DISPONIBLES EN LA BD" del contexto del usuario.
+  Usa el id y name EXACTAMENTE como están en esa lista. NO inventes ids ni nombres nuevos.
+  Si el departamento solicitado NO existe en esa lista, NO emitas ADD_LANE. En cambio, explica
+  en "razonamiento" que el departamento no está registrado en la base de datos.
 - Si el usuario pide renombrar un carril → usa UPDATE_LANE con target_id (el id del carril) y lane_data = {{ name }}.
 - Si el usuario pide eliminar un carril → usa DELETE_LANE con target_id (el id del carril).
-- Si el usuario pide asignar un nodo a un departamento → usa UPDATE_NODE con target_id y node_data.laneId = id del carril.
+- Si el usuario pide asignar un nodo a un departamento:
+  REGLA CRÍTICA: SIEMPRE busca primero el departamento en "DEPARTAMENTOS DISPONIBLES EN LA BD"
+  y usa su id real como laneId. NUNCA uses el id del carril de "Carriles actuales" para esto,
+  ya que los ids del canvas pueden no coincidir con los ids reales de la base de datos.
+  Flujo obligatorio:
+  1. Busca el departamento por nombre en "DEPARTAMENTOS DISPONIBLES EN LA BD" → obtén su id real.
+  2. Si NO existe en la BD → explica en "razonamiento" y no emitas ninguna mutación.
+  3. Si existe en la BD:
+     a. Verifica si ya hay un carril en "Carriles actuales" con ese mismo id real.
+        Si no lo hay, PRIMERO emite ADD_LANE con el id y name de la BD.
+     b. SIEMPRE emite UPDATE_NODE con node_data.laneId = id real de la BD,
+        aunque el nodo ya esté visualmente en un carril con el mismo nombre.
+        Esto es obligatorio para vincular el nodo al departamento real de la base de datos.
 - REGLA ESPECIAL — Carril "General" (id: "default"): este carril es un placeholder temporal que aparece
   cuando el workflow no tiene departamentos reales. Si los "Carriles actuales" contienen un carril con
   id "default" o nombre "General", Y la petición implica crear o usar carriles reales, DEBES incluir
@@ -69,6 +85,11 @@ REGLAS UML — DIAGRAMA DE ACTIVIDADES (obligatorias, nunca las violes):
    - Si el usuario menciona únicamente 1 rama de salida, debes crear AUTOMÁTICAMENTE una
      segunda edge hacia el nodo END existente (o hacia un nuevo END si no existe aún).
    - NUNCA dejes un CONDITION con solo 1 edge saliente.
+   - PUERTOS DE SALIDA OBLIGATORIOS: Las 2 edges salientes de un CONDITION DEBEN usar puertos
+     opuestos para respetar la notación UML del rombo de decisión. Incluye siempre sourceHandle:
+       · Primera rama (camino principal / "sí"):   edge_data.sourceHandle = "right"
+       · Segunda rama (camino alternativo / "no"): edge_data.sourceHandle = "left"
+     Esto hace que las flechas salgan por el lado derecho e izquierdo del rombo.
 5. MERGE (sincronización de ramas PARALELAS — AND-join): SOLO úsalo cuando múltiples ramas
    se ejecutan SIMULTÁNEAMENTE y debes esperar a que TODAS terminen antes de continuar.
    Debe tener 2+ edges entrantes y exactamente 1 edge saliente.
@@ -102,7 +123,23 @@ E. Nunca mezcles ADD_NODE de distintos pasos del flujo de forma aleatoria.
 
 REGLAS DE CONECTORES:
 - Para ADD_EDGE: edge_data debe incluir sourceId, targetId, y relationType (SEQUENTIAL/CONDITIONAL/ITERATIVE/MERGE).
+  Opcionalmente puede incluir sourceHandle con el id del puerto de salida del nodo origen ("right", "left", "top", "bottom").
+  Es OBLIGATORIO incluir sourceHandle en las edges salientes de nodos CONDITION (ver regla 4).
 - Para DELETE_EDGE: usa target_id.
+- Para UPDATE_EDGE: usa target_id (id del conector existente) y edge_data con conditionRule.
+  conditionRule requiere: field (nombre exacto del campo del formulario a evaluar),
+  operator (uno de: ==, !=, >, <, >=, <=, contains), value (valor que activa este camino).
+  Úsalo SOLO en edges de tipo CONDITIONAL (los que salen de nodos CONDITION).
+  NUNCA uses UPDATE_EDGE en edges SEQUENTIAL, ITERATIVE o MERGE.
+
+IDENTIFICACIÓN DE CONECTORES PARA UPDATE_EDGE:
+El usuario puede referirse al conector por los nombres de los nodos que conecta.
+Para resolverlo:
+1. Busca en "Nodos" el id del nodo origen y del nodo destino por sus nombres.
+2. Busca en "Conectores" el edge cuyo sourceId == id_origen Y targetId == id_destino.
+3. Usa el id de ese edge como target_id del UPDATE_EDGE.
+4. conditionRule.field debe ser el nombre del campo (snake_case) que el usuario mencione;
+   si no lo indica explícitamente, infiere el nombre del campo más relevante del contexto.
 
 ESQUEMA JSON OBLIGATORIO:
 {schema}
@@ -212,6 +249,16 @@ REGLAS DE DISEÑO:
 7. El sortOrder debe ser 1, 2, 3... en orden lógico de llenado.
 8. No incluir campos de auditoría (created_at, updated_by, etc.) — esos son automáticos.
 
+ASIGNACIÓN DE DEPARTAMENTO:
+Si el mensaje incluye la sección "DEPARTAMENTOS DISPONIBLES EN LA BD:" con una lista de
+departamentos ({id, name}), debes analizar el contexto del nodo e inferir cuál es el
+departamento más adecuado para realizar esta tarea.
+- Si el contexto implica claramente un departamento específico (p.ej. "Revisión de crédito"
+  → Finanzas, "Instalación de medidor" → Técnico), incluye su id en "suggested_department_id".
+- Si el departamento actualmente seleccionado ya es el correcto, devuelve ese mismo id.
+- Si no puedes determinarlo con suficiente confianza, devuelve null.
+- NUNCA inventes un id que no esté en la lista provista.
+
 Devuelve un JSON con esta estructura exacta:
 {
   "form_schema": {
@@ -229,11 +276,50 @@ Devuelve un JSON con esta estructura exacta:
       }
     ]
   },
-  "reasoning": "justificación de los campos elegidos"
+  "suggested_department_id": "id-del-departamento-o-null",
+  "reasoning": "justificación de los campos elegidos y del departamento sugerido"
 }
 
 REGLAS:
 - Responde SOLO con JSON válido. Sin texto adicional.
 - Solo genera formSchema para nodos de tipo TASK o ITERATOR.
-  Para otros tipos (START, END, CONDITION, MERGE), retorna un formSchema con fields vacíos.
+  Para otros tipos (START, END, CONDITION, MERGE), retorna un formSchema con fields vacíos
+  y suggested_department_id: null.
+""".strip()
+
+    # ------------------------------------------------------------------
+    # Prompt: relleno de formulario por voz
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def build_fill_form_system() -> str:
+        """System prompt para el endpoint de relleno de formulario por voz.
+
+        El LLM recibe el esquema del formulario (con nombres, etiquetas, tipos
+        y opciones) y el transcript de voz del funcionario, y devuelve un mapa
+        de campo → valor extraído del transcript.
+        """
+        return """
+Eres un asistente que extrae valores de formulario a partir de un transcript de voz.
+Se te dará un esquema de formulario (con nombres, etiquetas, tipos y opciones de cada campo)
+y el texto transcrito de lo que dijo el funcionario.
+
+Tu tarea es mapear exactamente lo que dijo el funcionario al valor correcto para cada campo.
+
+REGLAS ESTRICTAS:
+- Para campos `select`: el valor DEBE ser una de las opciones disponibles. Elige la más cercana semánticamente.
+- Para campos `multiselect`: devuelve un array con las opciones mencionadas (cada una debe estar en el listado).
+- Para campos `boolean`: devuelve true si la respuesta es afirmativa, false si es negativa.
+- Para campos `date`: devuelve formato ISO 8601 (YYYY-MM-DD). Si el año no se menciona, usa el año actual.
+- Para campos `number`: devuelve el número como valor numérico, sin texto ni unidades.
+- Para campos `text` y `textarea`: devuelve el fragmento más relevante del transcript para ese campo.
+- Para campos `file`: omite el campo y agrégalo a unfillable_fields (no se puede rellenar por voz).
+- NUNCA inventes valores. Si no puedes determinar el valor con certeza desde el transcript, omite el campo y agrégalo a unfillable_fields.
+- No agregues campos que no existan en el esquema.
+
+Responde SOLO con JSON válido, sin texto adicional, sin markdown:
+{
+  "fields": { "nombre_campo": <valor>, ... },
+  "unfillable_fields": ["nombre_campo", ...]
+}
 """.strip()

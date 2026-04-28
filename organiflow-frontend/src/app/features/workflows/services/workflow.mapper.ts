@@ -315,8 +315,9 @@ export class WorkflowMapper {
     return departments
       .filter(d => d.isActive)
       .map((d, i) => ({
-        id: d.id,
-        name: d.name,
+        id:                 d.id,
+        name:               d.name,
+        linkedDepartmentId: d.id,
         role: 'officer' as const,
         height: 150,
         color: LANE_PASTEL_COLORS[i % LANE_PASTEL_COLORS.length],

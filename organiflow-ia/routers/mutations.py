@@ -29,6 +29,7 @@ async def get_workflow_mutations(request: EditRequest) -> MutationPlan:
             nodes=request.current_nodes,
             edges=request.current_edges,
             lanes=request.current_lanes,
+            available_departments=request.available_departments,
         )
     except Exception as exc:
         traceback.print_exc()

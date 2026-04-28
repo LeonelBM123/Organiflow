@@ -35,7 +35,7 @@ class SchemaGeneratorService:
         client = get_client()
 
         dept_info = (
-            f" El departamento responsable es: {request.department_name}."
+            f" El departamento actualmente seleccionado es: {request.department_name}."
             if request.department_name
             else ""
         )
@@ -46,10 +46,17 @@ class SchemaGeneratorService:
             else ""
         )
 
+        departments_section = (
+            f"\n\nDEPARTAMENTOS DISPONIBLES EN LA BD:\n{json.dumps(request.available_departments, ensure_ascii=False)}"
+            if request.available_departments
+            else ""
+        )
+
         user_message = (
             f"Tipo de nodo: {request.node_type}\n"
             f"Contexto del proceso: {request.context}{dept_info}\n"
             f"Idioma para los labels: {request.language}"
+            f"{departments_section}"
             f"{voice_section}"
         )
 

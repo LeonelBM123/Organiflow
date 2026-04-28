@@ -231,11 +231,12 @@ export class NodePanelComponent implements OnInit, OnDestroy {
     this.schemaError.set(null);
 
     this.aiService.generateSchema({
-      node_type:        node.type,
-      context:          this.form.get('name')?.value || node.name,
-      department_name:  dept?.name,
-      language:         'es',
-      voice_transcript: transcript || undefined,
+      node_type:             node.type,
+      context:               this.form.get('name')?.value || node.name,
+      department_name:       dept?.name,
+      language:              'es',
+      voice_transcript:      transcript || undefined,
+      available_departments: this.departments().map(d => ({ id: d.id, name: d.name })),
     }).pipe(
       finalize(() => {
         this.isGeneratingSchema.set(false);
@@ -249,6 +250,16 @@ export class NodePanelComponent implements OnInit, OnDestroy {
           console.error('[NodePanel] Error al aplicar el schema generado:', e);
           this.schemaError.set('El esquema recibido tiene un formato inesperado.');
         }
+
+        if (res.suggestedDepartmentId) {
+          const exists = this.departments().some(d => d.id === res.suggestedDepartmentId);
+          if (exists) {
+            this.form.get('departmentId')?.setValue(res.suggestedDepartmentId);
+            this.form.get('assignedUserId')?.setValue('');
+            this.selectedDepartmentId.set(res.suggestedDepartmentId);
+          }
+        }
+
         this.voiceTranscript.set('');
         this.cdr.markForCheck();
       },

@@ -26,17 +26,17 @@ REGLAS ESTRICTAS:
 - Usa solo: ADD_NODE, UPDATE_NODE, DELETE_NODE, ADD_EDGE, DELETE_EDGE, ADD_LANE, UPDATE_LANE, DELETE_LANE.
 
 REGLAS DE CARRILES (SWIMLANES):
-- Cada carril representa un departamento o área de la empresa.
-- Los carriles disponibles están en "Carriles actuales". Úsalos para asignar laneId a los nodos.
-- Si el usuario pide crear un nuevo departamento/área/carril → usa ADD_LANE con lane_data = {{ id, name }}.
+- Cada carril representa un departamento o área de la empresa. Los carriles disponibles están en "Carriles actuales".
+- PRIORIDAD 1 (INFERIR Y REUTILIZAR): Cuando el usuario mencione un departamento para una tarea, PRIMERO evalúa si existe una coincidencia lógica o semántica con alguno de los "Carriles actuales". Usa el id de ese carril existente para asignar el laneId a los nodos.
+- PRIORIDAD 2 (CREAR - ADD_LANE): SOLO si el departamento mencionado NO tiene ninguna relación coherente con los carriles existentes, o si el usuario pide explícitamente crear uno nuevo, entonces usa ADD_LANE. Genera un "name" basado en la petición y crea un "id" lógico y único (ej: "lane-finanzas").
 - Si el usuario pide renombrar un carril → usa UPDATE_LANE con target_id (el id del carril) y lane_data = {{ name }}.
 - Si el usuario pide eliminar un carril → usa DELETE_LANE con target_id (el id del carril).
 - Si el usuario pide asignar un nodo a un departamento → usa UPDATE_NODE con target_id y node_data.laneId = id del carril.
 - REGLA ESPECIAL — Carril "General" (id: "default"): este carril es un placeholder temporal que aparece
   cuando el workflow no tiene departamentos reales. Si los "Carriles actuales" contienen un carril con
-  id "default" o nombre "General", Y la petición implica crear o usar carriles reales, DEBES incluir
+  id "default" o nombre "General", Y la petición implica crear o usar carriles específicos, DEBES incluir
   al inicio de las mutations un DELETE_LANE con target_id "default" para eliminarlo. No lo elimines
-  si el usuario no está creando nuevos carriles o si es el único carril y no hay alternativa.
+  si no se están creando/usando otros carriles o si es el único carril y no hay alternativa.
 
 REGLAS DE NODOS:
 - Para ADD_NODE: node_data debe incluir id (ej: node-uuid4), name, type (START/TASK/CONDITION/MERGE/END).
@@ -51,8 +51,13 @@ REGLAS UML — DIAGRAMA DE ACTIVIDADES (obligatorias, nunca las violes):
 2. ÚNICO END: Solo puede existir UN nodo de tipo END en todo el diagrama. Igual que START.
 3. FLUJO COMPLETO: Todo nodo nuevo debe quedar conectado al flujo. No dejes nodos huérfanos.
    Si añades un nodo intermedio, añade también las edges necesarias para integrarlo al flujo.
-4. CONDITION (decisión): Un nodo CONDITION debe tener exactamente 1 edge entrante y al menos
-   2 edges salientes (cada rama representa un camino alternativo).
+4. CONDITION (decisión XOR — exclusiva): Solo UNA rama se ejecutará. Debe tener exactamente
+   1 edge entrante y exactamente 2 edges salientes (cada rama es un camino alternativo
+   mutuamente exclusivo).
+   - Si el usuario menciona únicamente 1 rama de salida, debes crear AUTOMÁTICAMENTE una
+     segunda edge hacia el nodo END existente (o hacia un nuevo END si no existe aún).
+   - NUNCA dejes un CONDITION con solo 1 edge saliente.
+   - REGLA VISUAL ESTRICTA: Los 2 caminos que salen de este nodo DEBEN salir por los lados opuestos. La primera edge saliente debe configurarse para salir por el lado "izquierdo" (left) y la segunda edge por el lado "derecho" (right).
 5. MERGE (unión): Un nodo MERGE debe tener 2+ edges entrantes y exactamente 1 edge saliente.
    Úsalo para reunir ramas paralelas o condicionales antes de continuar.
 6. ITERATOR: Representa un bucle. Tiene 1 edge entrante, 1 edge saliente que continúa el flujo,
@@ -69,17 +74,18 @@ el orden visual de arriba hacia abajo. Debes seguir estas reglas de ordenación:
 
 A. Emite las mutaciones ADD_NODE en orden TOPOLÓGICO del flujo:
    - START siempre primero (si se crea).
-   - Luego los nodos intermedios en el orden en que se ejecutarían (según el flujo de actividades).
+   - Luego los nodos intermedios en el orden en que se ejecutarían.
    - END siempre al último (si se crea).
 B. Dentro del mismo carril, los nodos que se ejecutan antes deben aparecer ANTES en la lista.
-C. Si hay ramas paralelas (CONDITION → rama A y rama B), emite los nodos de cada rama
-   intercalados por carril: todos los de rama A juntos, luego los de rama B.
+C. Si hay ramas de un CONDITION, emite los nodos de cada rama
+   juntos por carril: todos los de rama A juntos, luego los de rama B.
 D. Emite los ADD_EDGE al final, después de todos los ADD_NODE, para que las referencias
    a nodos recién creados ya existan.
 E. Nunca mezcles ADD_NODE de distintos pasos del flujo de forma aleatoria.
 
 REGLAS DE CONECTORES:
 - Para ADD_EDGE: edge_data debe incluir sourceId, targetId, y relationType (SEQUENTIAL/CONDITIONAL/ITERATIVE/MERGE).
+- IMPORTANTE PARA NODOS CONDITION: Cuando uses ADD_EDGE donde el sourceId sea un nodo CONDITION, debes añadir la propiedad que define el puerto de salida (ej: "sourceHandle": "left" para la primera opción, y "sourceHandle": "right" para la segunda opción).
 - Para DELETE_EDGE: usa target_id.
 
 ESQUEMA JSON OBLIGATORIO:

@@ -25,7 +25,7 @@ class MainApp extends ConsumerWidget {
     final currentTheme = ref.watch(themeProvider);
 
     return ShadApp.router(
-      title: 'SpaceShift Movil',
+      title: 'Organiflow',
       debugShowCheckedModeBanner: false,
 
       themeMode: currentTheme, // ¡Inyectamos el tema dinámico aquí!

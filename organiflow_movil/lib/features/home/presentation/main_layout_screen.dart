@@ -35,7 +35,7 @@ class _MainLayoutScreenState extends ConsumerState<MainLayoutScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('SpaceShift'),
+        title: const Text('Organiflow'),
         actions: [
           // Botón para cambiar el tema
           ShadButton.ghost(

@@ -1,7 +1,6 @@
 import {
   ChangeDetectionStrategy,
   Component,
-  effect,
   inject,
   input,
   OnInit,
@@ -10,6 +9,23 @@ import {
 } from '@angular/core';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { FormField, FormSchema } from '../../models/task.model';
+import { AiService } from '../../../workflows/services/ai.service';
+
+// Web Speech API local types (not fully typed in all TypeScript versions)
+interface SpeechRecognitionInstance {
+  lang: string;
+  interimResults: boolean;
+  maxAlternatives: number;
+  onresult: ((e: SpeechRecognitionResultEvent) => void) | null;
+  onerror: ((e: Event) => void) | null;
+  onend: (() => void) | null;
+  start(): void;
+  stop(): void;
+}
+interface SpeechRecognitionResultEvent extends Event {
+  results: SpeechRecognitionResultList;
+}
+type SpeechRecognitionCtor = new () => SpeechRecognitionInstance;
 
 @Component({
   selector: 'app-dynamic-form',
@@ -20,6 +36,7 @@ import { FormField, FormSchema } from '../../models/task.model';
 })
 export class DynamicFormComponent implements OnInit {
   private readonly fb = inject(FormBuilder);
+  private readonly aiService = inject(AiService);
 
   schema = input.required<FormSchema>();
   initialData = input<Record<string, unknown>>({});
@@ -30,6 +47,16 @@ export class DynamicFormComponent implements OnInit {
 
   readonly form = signal<FormGroup | null>(null);
   readonly sortedFields = signal<FormField[]>([]);
+
+  // ── Voice fill state ────────────────────────────────────────────
+  readonly isRecording = signal(false);
+  readonly isAiFillingForm = signal(false);
+  readonly voiceError = signal<string | null>(null);
+  readonly isSpeechSupported =
+    typeof window !== 'undefined' &&
+    ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window);
+
+  private recognition: SpeechRecognitionInstance | null = null;
 
   ngOnInit(): void {
     this.buildForm();
@@ -88,5 +115,71 @@ export class DynamicFormComponent implements OnInit {
     if (idx > -1) current.splice(idx, 1);
     else current.push(option);
     ctrl.setValue(current);
+  }
+
+  // ── Voice fill ──────────────────────────────────────────────────
+
+  toggleVoice(): void {
+    if (this.isRecording()) {
+      this.recognition?.stop();
+      this.isRecording.set(false);
+      return;
+    }
+
+    this.voiceError.set(null);
+
+    const SR =
+      (window as unknown as { SpeechRecognition?: SpeechRecognitionCtor; webkitSpeechRecognition?: SpeechRecognitionCtor })
+        .SpeechRecognition ??
+      (window as unknown as { webkitSpeechRecognition?: SpeechRecognitionCtor })
+        .webkitSpeechRecognition;
+
+    if (!SR) return;
+
+    this.recognition = new SR();
+    this.recognition.lang = 'es-ES';
+    this.recognition.interimResults = false;
+    this.recognition.maxAlternatives = 1;
+
+    this.recognition.onresult = (e: SpeechRecognitionResultEvent) => {
+      const transcript = Array.from(e.results)
+        .map(r => (r as SpeechRecognitionResult)[0].transcript)
+        .join(' ')
+        .trim();
+      this.isRecording.set(false);
+      if (transcript) this.fillWithAi(transcript);
+    };
+
+    this.recognition.onerror = () => {
+      this.isRecording.set(false);
+      this.voiceError.set('No se pudo capturar el audio. Inténtalo de nuevo.');
+    };
+
+    this.recognition.onend = () => this.isRecording.set(false);
+
+    this.recognition.start();
+    this.isRecording.set(true);
+  }
+
+  private fillWithAi(transcript: string): void {
+    const schema = this.schema();
+    const form = this.form();
+    if (!form) return;
+
+    this.isAiFillingForm.set(true);
+
+    this.aiService.fillForm({ transcript, formSchema: schema }).subscribe({
+      next: res => {
+        Object.entries(res.fields).forEach(([name, value]) => {
+          const ctrl = form.get(name);
+          if (ctrl) ctrl.setValue(value);
+        });
+        this.isAiFillingForm.set(false);
+      },
+      error: () => {
+        this.voiceError.set('Error al procesar con IA. Inténtalo de nuevo.');
+        this.isAiFillingForm.set(false);
+      },
+    });
   }
 }

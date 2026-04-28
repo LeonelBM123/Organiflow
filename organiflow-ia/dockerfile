@@ -1,0 +1,21 @@
+# 1. Usamos exactamente la misma versión de Python que tienes en tu máquina
+FROM python:3.13-slim
+
+# 2. Creamos el directorio de trabajo dentro del contenedor
+WORKDIR /app
+
+# 3. Copiamos SOLO el archivo de requerimientos primero
+# (Esto optimiza la caché de Docker para que no instale todo de cero si solo cambias tu código)
+COPY requirements.txt .
+
+# 4. Instalamos las dependencias
+RUN pip install --no-cache-dir -r requirements.txt
+
+# 5. Copiamos el resto del código fuente (el .dockerignore evitará que se copie el venv)
+COPY . .
+
+# 6. Exponemos el puerto de FastAPI
+EXPOSE 8000
+
+# 7. Comando para arrancar la aplicación
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]

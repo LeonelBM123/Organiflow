@@ -37,3 +37,14 @@ export interface TaskResponse {
 export interface TaskCompleteRequest {
   formData: Record<string, unknown>;
 }
+
+export interface AiFillFormRequest {
+  transcript: string;
+  formSchema: FormSchema;
+  language?: string;
+}
+
+export interface AiFillFormResponse {
+  fields: Record<string, unknown>;
+  unfillableFields: string[];
+}

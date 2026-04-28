@@ -16,6 +16,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from routers import analysis, mutations, schema
+from routers.fill_form import router as fill_form_router
 
 load_dotenv()
 
@@ -91,3 +92,4 @@ app.add_middleware(
 app.include_router(mutations.router)
 app.include_router(analysis.router)
 app.include_router(schema.router)
+app.include_router(fill_form_router)
