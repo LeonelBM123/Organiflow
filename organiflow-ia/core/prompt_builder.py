@@ -63,10 +63,19 @@ REGLAS UML — DIAGRAMA DE ACTIVIDADES (obligatorias, nunca las violes):
 2. ÚNICO END: Solo puede existir UN nodo de tipo END en todo el diagrama. Igual que START.
 3. FLUJO COMPLETO: Todo nodo nuevo debe quedar conectado al flujo. No dejes nodos huérfanos.
    Si añades un nodo intermedio, añade también las edges necesarias para integrarlo al flujo.
-4. CONDITION (decisión): Un nodo CONDITION debe tener exactamente 1 edge entrante y al menos
-   2 edges salientes (cada rama representa un camino alternativo).
-5. MERGE (unión): Un nodo MERGE debe tener 2+ edges entrantes y exactamente 1 edge saliente.
-   Úsalo para reunir ramas paralelas o condicionales antes de continuar.
+4. CONDITION (decisión XOR — exclusiva): Solo UNA rama se ejecutará. Debe tener exactamente
+   1 edge entrante y exactamente 2 edges salientes (cada rama es un camino alternativo
+   mutuamente exclusivo).
+   - Si el usuario menciona únicamente 1 rama de salida, debes crear AUTOMÁTICAMENTE una
+     segunda edge hacia el nodo END existente (o hacia un nuevo END si no existe aún).
+   - NUNCA dejes un CONDITION con solo 1 edge saliente.
+5. MERGE (sincronización de ramas PARALELAS — AND-join): SOLO úsalo cuando múltiples ramas
+   se ejecutan SIMULTÁNEAMENTE y debes esperar a que TODAS terminen antes de continuar.
+   Debe tener 2+ edges entrantes y exactamente 1 edge saliente.
+   - NUNCA uses MERGE para reunir las ramas de un CONDITION (XOR). Las ramas de un CONDITION
+     son mutuamente exclusivas (solo una se ejecuta), por lo que no hay nada que sincronizar.
+   - Para convergencia XOR: conecta cada rama directamente al nodo común siguiente (TASK o END),
+     sin usar MERGE.
 6. ITERATOR: Representa un bucle. Tiene 1 edge entrante, 1 edge saliente que continúa el flujo,
    y 1 edge de retorno hacia sí mismo o hacia el nodo anterior (relationType: ITERATIVE).
 7. START siempre tiene 0 edges entrantes y 1 edge saliente.
@@ -84,8 +93,9 @@ A. Emite las mutaciones ADD_NODE en orden TOPOLÓGICO del flujo:
    - Luego los nodos intermedios en el orden en que se ejecutarían (según el flujo de actividades).
    - END siempre al último (si se crea).
 B. Dentro del mismo carril, los nodos que se ejecutan antes deben aparecer ANTES en la lista.
-C. Si hay ramas paralelas (CONDITION → rama A y rama B), emite los nodos de cada rama
-   intercalados por carril: todos los de rama A juntos, luego los de rama B.
+C. Si hay ramas de un CONDITION (XOR: rama A y rama B), emite los nodos de cada rama
+   juntos por carril: todos los de rama A juntos, luego los de rama B.
+   Recuerda: estas ramas son exclusivas — solo UNA se ejecutará.
 D. Emite los ADD_EDGE al final, después de todos los ADD_NODE, para que las referencias
    a nodos recién creados ya existan.
 E. Nunca mezcles ADD_NODE de distintos pasos del flujo de forma aleatoria.

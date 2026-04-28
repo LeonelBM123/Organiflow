@@ -159,7 +159,42 @@ class AnalyzerService:
                     ),
                 ))
 
-            # 8. START sin edge saliente (WARNING)
+            # 8. MERGE después de split XOR (CONDITION) — semánticamente incorrecto
+            if ntype == "MERGE" and len(n_in) >= 2:
+                # Construir mapa de hijos directos de nodos CONDITION
+                condition_ids = {n.get("id", "") for n in nodes_by_type.get("CONDITION", [])}
+                # Para cada nodo CONDITION, obtener sus hijos directos
+                condition_children: dict[str, set[str]] = {}
+                for edge in edges:
+                    src = edge.get("sourceId", "")
+                    tgt = edge.get("targetId", "")
+                    if src in condition_ids:
+                        condition_children.setdefault(src, set()).add(tgt)
+                # Verificar si todos los padres del MERGE son hijos del mismo CONDITION
+                for cond_id, children in condition_children.items():
+                    incoming_set = set(n_in)
+                    if incoming_set and incoming_set.issubset(children):
+                        cond_node = next(
+                            (n for n in nodes if n.get("id") == cond_id), {}
+                        )
+                        cond_name = cond_node.get("name") or cond_id
+                        errors.append(LogicError(
+                            severity="WARNING",
+                            node_id=nid,
+                            message=(
+                                f"MERGE incorrecto: el nodo MERGE '{nname}' recibe ramas "
+                                f"del CONDITION '{cond_name}' (XOR). Las ramas de un "
+                                "CONDITION son mutuamente exclusivas; solo una se ejecuta, "
+                                "por lo que no hay nada que sincronizar con un MERGE."
+                            ),
+                            suggestion=(
+                                f"Elimina el nodo MERGE '{nname}' y conecta cada rama "
+                                "directamente al nodo siguiente común (TASK o END)."
+                            ),
+                        ))
+                        break
+
+            # 10. START sin edge saliente (WARNING)
             if ntype == "START" and not n_out:
                 errors.append(LogicError(
                     severity="WARNING",
@@ -168,7 +203,7 @@ class AnalyzerService:
                     suggestion="Conecta el nodo START al primer paso del workflow.",
                 ))
 
-            # 9. END con edges salientes (WARNING)
+            # 11. END con edges salientes (WARNING)
             if ntype == "END" and n_out:
                 errors.append(LogicError(
                     severity="WARNING",
