@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "738758595284",
+    "project_id": "organiflow-bab98",
+    "storage_bucket": "organiflow-bab98.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:738758595284:android:0085f44b97e5df1a962141",
+        "android_client_info": {
+          "package_name": "com.example.organiflow_movil"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDYIN0j0Oc1q4YhCYDzAtygZ6WQpbI3c9A"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

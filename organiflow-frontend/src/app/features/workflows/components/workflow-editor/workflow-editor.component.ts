@@ -107,6 +107,9 @@ export class WorkflowEditorComponent implements OnInit, AfterViewInit, OnDestroy
   private readonly diagramViewport = signal({ zoom: 1, hOffset: 0, vOffset: 0 });
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private recognition: any = null;
+  private keepRecordingActive = false;
+  private recordingRestartTimer: ReturnType<typeof setTimeout> | null = null;
+  private readonly recordingRestartDelayMs = 1200;
 
   readonly displayCursors = computed(() => {
     const { zoom, hOffset, vOffset } = this.diagramViewport();
@@ -206,6 +209,8 @@ export class WorkflowEditorComponent implements OnInit, AfterViewInit, OnDestroy
   }
 
   ngOnDestroy(): void {
+    this.clearRecordingRestartTimer();
+    this.keepRecordingActive = false;
     this.recognition?.stop();
     this.destroy$.next();
     this.destroy$.complete();
@@ -1222,7 +1227,7 @@ export class WorkflowEditorComponent implements OnInit, AfterViewInit, OnDestroy
 
     this.recognition = new SR();
     this.recognition.lang           = 'es-ES';
-    this.recognition.continuous     = false;
+    this.recognition.continuous     = true;
     this.recognition.interimResults = true;
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -1233,20 +1238,66 @@ export class WorkflowEditorComponent implements OnInit, AfterViewInit, OnDestroy
       this.zone.run(() => this.iaPrompt.set(transcript));
     };
 
-    this.recognition.onend  = () => this.zone.run(() => this.isRecording.set(false));
-    this.recognition.onerror = () => this.zone.run(() => this.isRecording.set(false));
+    this.recognition.onend = () => {
+      if (!this.keepRecordingActive) {
+        this.zone.run(() => this.isRecording.set(false));
+        return;
+      }
+
+      this.scheduleRecordingRestart();
+    };
+
+    this.recognition.onerror = () => {
+      if (!this.keepRecordingActive) {
+        this.zone.run(() => this.isRecording.set(false));
+        return;
+      }
+
+      this.scheduleRecordingRestart();
+    };
   }
 
   toggleRecording(): void {
     if (!this.recognition) return;
     if (this.isRecording()) {
+      this.keepRecordingActive = false;
+      this.clearRecordingRestartTimer();
       this.recognition.stop();
+      this.isRecording.set(false);
     } else {
       this.iaPrompt.set('');
+      this.keepRecordingActive = true;
+      this.clearRecordingRestartTimer();
       this.recognition.start();
       this.isRecording.set(true);
       this.cdr.detectChanges();
     }
+  }
+
+  private scheduleRecordingRestart(): void {
+    this.clearRecordingRestartTimer();
+    this.recordingRestartTimer = setTimeout(() => {
+      if (!this.keepRecordingActive) {
+        this.zone.run(() => this.isRecording.set(false));
+        return;
+      }
+
+      try {
+        this.recognition?.start();
+        this.zone.run(() => {
+          this.isRecording.set(true);
+          this.cdr.detectChanges();
+        });
+      } catch {
+        this.zone.run(() => this.isRecording.set(false));
+      }
+    }, this.recordingRestartDelayMs);
+  }
+
+  private clearRecordingRestartTimer(): void {
+    if (this.recordingRestartTimer === null) return;
+    clearTimeout(this.recordingRestartTimer);
+    this.recordingRestartTimer = null;
   }
 
   onIaPromptInput(event: Event): void {
@@ -1779,6 +1830,7 @@ export class WorkflowEditorComponent implements OnInit, AfterViewInit, OnDestroy
       annotations: [],
       ports: [],
       departmentId: addInfo['departmentId'],
+      assignedUserId: addInfo['assignedUserId'],
       timeoutHours: addInfo['timeoutHours'],
       formSchema: addInfo['formSchema'],
       aiConfig: addInfo['aiConfig'],

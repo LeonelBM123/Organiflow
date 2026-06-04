@@ -1,14 +1,15 @@
-# 1. Usamos una imagen oficial ligera de Java 21
-FROM eclipse-temurin:21-jdk-alpine
+FROM maven:3.9.9-eclipse-temurin-21 AS build
 
-# 2. Creamos un directorio de trabajo dentro del contenedor
 WORKDIR /app
+COPY pom.xml .
+COPY src ./src
+RUN mvn -q -DskipTests package
 
-# 3. Copiamos el archivo JAR compilado desde tu carpeta 'target' al contenedor
-COPY target/organiflow-0.0.1-SNAPSHOT.jar app.jar
+FROM eclipse-temurin:21-jre-alpine
 
-# 4. Exponemos el puerto 8080 (el puerto por defecto de Spring Boot)
-EXPOSE 8080
+WORKDIR /app
+COPY --from=build /app/target/organiflow-0.0.1-SNAPSHOT.jar app.jar
 
-# 5. Comando para ejecutar tu backend cuando el contenedor inicie
+EXPOSE 8001
+
 ENTRYPOINT ["java", "-jar", "app.jar"]

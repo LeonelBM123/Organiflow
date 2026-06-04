@@ -4,6 +4,7 @@ import com.sw.organiflow.modules.auth.services.CustomUserDetailsService;
 import com.sw.organiflow.security.handlers.CustomAuthenticationEntryPoint;
 import com.sw.organiflow.security.jwt.JwtAuthFilter;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -19,6 +20,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.http.HttpMethod;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -35,6 +37,9 @@ public class SecurityConfig {
     private final JwtAuthFilter jwtAuthFilter;
     private final TenantFilter tenantFilter;
     private final CustomUserDetailsService userDetailsService;
+
+    @Value("${app.cors.allowed-origin-patterns:http://localhost:4200,http://localhost:3000}")
+    private List<String> allowedOriginPatterns;
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
@@ -54,7 +59,6 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
                                 "/api/v1/auth/**",
-                                "/api/v1/users/**",
                                 "/api/v1/tenants/register",
                                 "/ws/**",
                                 "/v3/api-docs/**",
@@ -66,6 +70,7 @@ public class SecurityConfig {
                                 "/error",
                                 "/favicon.ico"
                         ).permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/users").permitAll()
                         .anyRequest().authenticated()
                 )
                 .authenticationProvider(authenticationProvider())
@@ -78,10 +83,7 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
         // En prod reemplazá con tu dominio real
-        config.setAllowedOrigins(List.of(
-                "http://localhost:4200",  // Angular dev
-                "http://localhost:3000"   // React/Next dev si aplica
-        ));
+        config.setAllowedOriginPatterns(allowedOriginPatterns);
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of(
                 "Authorization",

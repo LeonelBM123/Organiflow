@@ -1,6 +1,10 @@
 package com.sw.organiflow.modules.notifications.models;
 
-import lombok.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.data.mongodb.core.mapping.Field;
@@ -10,6 +14,8 @@ import org.springframework.data.mongodb.core.mapping.FieldType;
 @Getter
 @Setter
 @Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class UserDevice {
     @Id
     private String id;
@@ -17,6 +23,6 @@ public class UserDevice {
     @Field(targetType = FieldType.OBJECT_ID)
     private String userId;
 
-    private String fcmToken; // El token que te manda el celular
-    private String deviceType; // "WEB", "ANDROID", "IOS"
+    private String fcmToken;
+    private String deviceType;
 }

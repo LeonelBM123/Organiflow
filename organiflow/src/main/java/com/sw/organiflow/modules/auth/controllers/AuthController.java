@@ -57,7 +57,7 @@ public class AuthController {
             @AuthenticationPrincipal UserDetails userDetails
     ) {
 
-        authService.logout(request, response, userDetails.getUsername());
+        authService.logout(request, response, userDetails != null ? userDetails.getUsername() : null);
         return ResponseEntity.ok(Map.of("message", "Sesión cerrada correctamente"));
     }
 }

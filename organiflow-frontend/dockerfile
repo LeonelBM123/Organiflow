@@ -15,7 +15,7 @@ RUN npm install
 COPY . .
 
 # Compilamos la aplicación de Angular (esto ejecutará "ng build")
-RUN npm run build
+RUN npm run build -- --configuration production
 
 # --- ETAPA 2: Servidor Web (Nginx) ---
 # Usamos un servidor Nginx muy ligero para servir los archivos estáticos
@@ -35,7 +35,7 @@ RUN echo "server { \
 
 # Copiamos los archivos compilados desde la Etapa 1.
 # El nuevo builder de Angular guarda los archivos en la subcarpeta /browser
-COPY --from=build /app/dist/organiflow-frontend/browser /usr/share/nginx/html
+COPY --from=build /app/dist/organiflow-frontend /usr/share/nginx/html
 
 # Exponemos el puerto 80 (el puerto web estándar)
 EXPOSE 80

@@ -15,4 +15,6 @@ public interface UserDeviceRepository extends MongoRepository<UserDevice, String
     Optional<UserDevice> findByUserIdAndFcmToken(String userId, String fcmToken);
 
     void deleteByUserIdAndFcmToken(String userId, String fcmToken);
+
+    void deleteByFcmToken(String fcmToken);
 }

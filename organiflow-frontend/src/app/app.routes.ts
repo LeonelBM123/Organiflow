@@ -82,6 +82,13 @@ export const routes: Routes = [
           import('./features/dashboard/components/admin-dashboard/admin-dashboard.component').then(
             (m) => m.AdminDashboardComponent
           )
+      },
+      {
+        path: 'notifications',
+        loadComponent: () =>
+          import('./features/notifications/components/notification-center/notification-center.component').then(
+            (m) => m.NotificationCenterComponent
+          )
       }
     ]
   },
@@ -123,6 +130,13 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/dashboard/components/officer-dashboard/officer-dashboard.component').then(
             (m) => m.OfficerDashboardComponent
+          )
+      },
+      {
+        path: 'notifications',
+        loadComponent: () =>
+          import('./features/notifications/components/notification-center/notification-center.component').then(
+            (m) => m.NotificationCenterComponent
           )
       }
     ]
@@ -186,6 +200,13 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/dashboard/components/user-dashboard/user-dashboard.component').then(
             (m) => m.UserDashboardComponent
+          )
+      },
+      {
+        path: 'notifications',
+        loadComponent: () =>
+          import('./features/notifications/components/notification-center/notification-center.component').then(
+            (m) => m.NotificationCenterComponent
           )
       }
     ]

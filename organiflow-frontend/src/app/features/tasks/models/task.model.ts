@@ -38,6 +38,13 @@ export interface TaskCompleteRequest {
   formData: Record<string, unknown>;
 }
 
+export interface PreviousStepContext {
+  nodeId: string;
+  nodeName: string;
+  completedAt: string | null;
+  formData: Record<string, unknown> | null;
+}
+
 export interface AiFillFormRequest {
   transcript: string;
   formSchema: FormSchema;

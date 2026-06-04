@@ -8,6 +8,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Lazy;
+import org.springframework.http.HttpMethod;
 import org.springframework.lang.NonNull;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -118,9 +119,11 @@ public class JwtAuthFilter extends OncePerRequestFilter {
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
         String path = request.getServletPath();
+        boolean isUserRegistration = path.equals("/api/v1/users")
+                && HttpMethod.POST.matches(request.getMethod());
         log.debug("shouldNotFilter path: '{}'", path);
         return path.startsWith("/api/v1/auth/")
-                || path.equals("/api/v1/users")        // Registro de usuario
+                || isUserRegistration
                 || path.startsWith("/api/v1/tenants")
                 || path.contains("/swagger-ui")
                 || path.contains("/v3/api-docs")

@@ -1,6 +1,7 @@
 package com.sw.organiflow.config;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.messaging.simp.config.ChannelRegistration;
 import org.springframework.messaging.simp.config.MessageBrokerRegistry;
@@ -16,10 +17,13 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     private final WebSocketAuthInterceptor webSocketAuthInterceptor;
 
+    @Value("${app.cors.allowed-origin-patterns:http://localhost:4200,http://localhost:3000}")
+    private String[] allowedOriginPatterns;
+
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
         registry.addEndpoint("/ws")
-                .setAllowedOrigins("http://localhost:4200")
+                .setAllowedOriginPatterns(allowedOriginPatterns)
                 .withSockJS()
                 // Estos son los métodos correctos de SockJS si el tráfico cae a HTTP Fallback
                 .setHttpMessageCacheSize(512 * 1024)

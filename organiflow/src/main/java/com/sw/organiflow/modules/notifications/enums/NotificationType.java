@@ -1,0 +1,17 @@
+package com.sw.organiflow.modules.notifications.enums;
+
+public enum NotificationType {
+    TASK_ASSIGNED,
+    TASK_COMPLETED,
+    TASK_UPDATED,
+    TASK_OVERDUE,
+    TASK_DUE_SOON,
+    EXECUTION_STARTED,
+    EXECUTION_COMPLETED,
+    EXECUTION_CANCELED,
+    EXECUTION_PAUSED,
+    WORKFLOW_PUBLISHED,
+    WORKFLOW_UPDATED,
+    SYSTEM_ALERT,
+    SLA_WARNING
+}

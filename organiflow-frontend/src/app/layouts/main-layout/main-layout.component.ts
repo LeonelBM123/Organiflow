@@ -1,7 +1,8 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, OnDestroy, signal } from '@angular/core';
 import { Router, RouterOutlet } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
 import { UserRole } from '../../core/enums/user-role.enum';
+import { NotificationsService } from '../../features/notifications/services/notifications.service';
 import { NavbarComponent } from '../../shared/components/navbar/navbar.component';
 import { SidebarComponent } from '../../shared/components/sidebar/sidebar.component';
 import { NavItem, RoleBadge } from '../../shared/models/nav-item.model';
@@ -54,7 +55,7 @@ const USER_NAV: NavItem[] = [
     iconPath: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z'
   },
   {
-    label: 'Nueva Solicitud',
+    label: 'Iniciar Nueva Solicitud',
     route: '/user/new-request',
     iconPath: 'M12 4v16m8-8H4'
   },
@@ -97,9 +98,10 @@ const ROLE_BADGE: Record<UserRole, RoleBadge> = {
   styleUrl: './main-layout.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class MainLayoutComponent {
+export class MainLayoutComponent implements OnDestroy {
   private readonly authService = inject(AuthService);
   private readonly router = inject(Router);
+  private readonly notificationsService = inject(NotificationsService);
 
   readonly currentUser = this.authService.currentUser;
   readonly isSidebarOpen = signal(false);
@@ -112,12 +114,16 @@ export class MainLayoutComponent {
   readonly navItems = computed<NavItem[]>(() => {
     const role = this.currentUser()?.role;
     switch (role) {
-      case UserRole.ADMIN:   return ADMIN_NAV;
+      case UserRole.ADMIN: return ADMIN_NAV;
       case UserRole.OFFICER: return OFFICER_NAV;
-      case UserRole.USER:    return USER_NAV;
-      default:               return [];
+      case UserRole.USER: return USER_NAV;
+      default: return [];
     }
   });
+
+  constructor() {
+    this.notificationsService.initialize();
+  }
 
   toggleSidebar(): void {
     this.isSidebarOpen.update(isOpen => !isOpen);
@@ -126,11 +132,15 @@ export class MainLayoutComponent {
   closeSidebar(): void {
     this.isSidebarOpen.set(false);
   }
-  
+
   onLogout(): void {
     this.authService.logout().subscribe({
       complete: () => this.router.navigate(['/login']),
-      error:    () => this.router.navigate(['/login'])
+      error: () => this.router.navigate(['/login'])
     });
+  }
+
+  ngOnDestroy(): void {
+    this.notificationsService.disconnect();
   }
 }

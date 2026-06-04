@@ -40,6 +40,36 @@
       }
     </div>
 
+    @if (previousStep(); as previous) {
+      <details class="previous-step-card">
+        <summary class="previous-step-summary">
+          <div>
+            <span class="previous-step-kicker">Referencia</span>
+            <strong>Ver información del paso anterior</strong>
+            <p>{{ previous.nodeName }} · {{ formatContextDate(previous.completedAt) }}</p>
+          </div>
+          <span class="previous-step-toggle">Expandir</span>
+        </summary>
+
+        <div class="previous-step-body">
+          @if (previousStepEntries().length > 0) {
+            <div class="previous-step-grid">
+              @for (entry of previousStepEntries(); track entry.key) {
+                <div class="previous-step-item">
+                  <span class="previous-step-label">{{ entry.label }}</span>
+                  <pre class="previous-step-value">{{ entry.displayValue }}</pre>
+                </div>
+              }
+            </div>
+          } @else {
+            <p class="previous-step-empty">
+              El paso anterior no registró datos de formulario, pero sí quedó completado.
+            </p>
+          }
+        </div>
+      </details>
+    }
+
     <div class="fields-grid">
       @for (field of sortedFields(); track field.name) {
         <div class="field-group" [class.full-width]="field.type === 'textarea'">

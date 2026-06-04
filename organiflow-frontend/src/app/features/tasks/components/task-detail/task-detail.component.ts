@@ -6,8 +6,10 @@ import {
   signal,
 } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
+import { ExecutionResponse } from '../../../executions/models/execution.model';
+import { ExecutionService } from '../../../executions/services/execution.service';
 import { TaskService } from '../../services/task.service';
-import { TaskResponse, TaskStatus } from '../../models/task.model';
+import { PreviousStepContext, TaskResponse, TaskStatus } from '../../models/task.model';
 import { DynamicFormComponent } from '../dynamic-form/dynamic-form.component';
 
 @Component({
@@ -19,10 +21,12 @@ import { DynamicFormComponent } from '../dynamic-form/dynamic-form.component';
 })
 export class TaskDetailComponent implements OnInit {
   private readonly taskService = inject(TaskService);
+  private readonly executionService = inject(ExecutionService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
 
   readonly task = signal<TaskResponse | null>(null);
+  readonly previousStepContext = signal<PreviousStepContext | null>(null);
   readonly isLoading = signal(true);
   readonly isStarting = signal(false);
   readonly isSubmitting = signal(false);
@@ -42,6 +46,7 @@ export class TaskDetailComponent implements OnInit {
     this.taskService.findById(id).subscribe({
       next: (t) => {
         this.task.set(t);
+        this.loadPreviousStepContext(t);
         this.isLoading.set(false);
       },
       error: () => {
@@ -93,5 +98,38 @@ export class TaskDetailComponent implements OnInit {
   isOverdue(dueAt: string | null): boolean {
     if (!dueAt) return false;
     return new Date(dueAt) < new Date();
+  }
+
+  private loadPreviousStepContext(task: TaskResponse): void {
+    this.previousStepContext.set(null);
+
+    this.executionService.findById(task.executionId).subscribe({
+      next: (execution) => {
+        this.previousStepContext.set(this.extractPreviousStep(execution, task.nodeId));
+      }
+    });
+  }
+
+  private extractPreviousStep(execution: ExecutionResponse, currentNodeId: string): PreviousStepContext | null {
+    const previousNode = [...execution.executionNodes]
+      .filter(node =>
+        node.nodeId !== currentNodeId &&
+        node.status === 'DONE' &&
+        (node.completedAt || node.formData)
+      )
+      .sort((a, b) => {
+        const left = new Date(a.completedAt ?? a.startedAt).getTime();
+        const right = new Date(b.completedAt ?? b.startedAt).getTime();
+        return right - left;
+      })[0];
+
+    if (!previousNode) return null;
+
+    return {
+      nodeId: previousNode.nodeId,
+      nodeName: previousNode.nodeName,
+      completedAt: previousNode.completedAt,
+      formData: previousNode.formData,
+    };
   }
 }

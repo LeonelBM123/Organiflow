@@ -76,6 +76,7 @@
           <div class="form-card">
             <app-dynamic-form
               [schema]="task()!.formSchema!"
+              [previousStep]="previousStepContext()"
               [isSubmitting]="isSubmitting()"
               (submitted)="completeTask($event)"
             />
@@ -99,6 +100,7 @@
           <app-dynamic-form
             [schema]="task()!.formSchema!"
             [initialData]="task()!.formData!"
+            [previousStep]="previousStepContext()"
             [isReadonly]="true"
           />
         </div>

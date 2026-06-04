@@ -4,8 +4,7 @@ import com.sw.organiflow.config.TenantContext;
 import com.sw.organiflow.modules.department.models.Department;
 import com.sw.organiflow.modules.department.repositories.DepartmentRepository;
 import com.sw.organiflow.modules.execution.services.ExecutionService;
-import com.sw.organiflow.modules.notifications.repositories.UserDeviceRepository;
-import com.sw.organiflow.modules.notifications.services.PushNotificationService;
+import com.sw.organiflow.modules.notifications.services.NotificationService;
 import com.sw.organiflow.modules.task.dtos.TaskCompleteRequest;
 import com.sw.organiflow.modules.task.dtos.TaskResponse;
 import com.sw.organiflow.modules.task.models.Task;
@@ -31,20 +30,17 @@ import java.util.Map;
 public class TaskService {
 
     private final TaskRepository taskRepository;
-    private final PushNotificationService pushNotificationService;
-    private final UserDeviceRepository userDeviceRepository;
+    private final NotificationService notificationService;
     private final ExecutionService executionService;
     private final DepartmentRepository departmentRepository;
 
     @Autowired
     public TaskService(TaskRepository taskRepository,
-                       PushNotificationService pushNotificationService,
-                       UserDeviceRepository userDeviceRepository,
+                       NotificationService notificationService,
                        @Lazy ExecutionService executionService,
                        DepartmentRepository departmentRepository) {
         this.taskRepository = taskRepository;
-        this.pushNotificationService = pushNotificationService;
-        this.userDeviceRepository = userDeviceRepository;
+        this.notificationService = notificationService;
         this.executionService = executionService;
         this.departmentRepository = departmentRepository;
     }
@@ -56,26 +52,26 @@ public class TaskService {
         }
 
         Instant dueAt = node.getTimeoutHours() != null
-                ? Instant.now().plusSeconds(node.getTimeoutHours() * 3600L)
-                : null;
+            ? Instant.now().plusSeconds(node.getTimeoutHours() * 3600L)
+            : null;
 
         Task task = Task.builder()
-                .tenantId(tenantId)
-                .executionId(executionId)
-                .workflowId(workflowId)
-                .nodeId(node.getId())
-                .nodeName(node.getName())
-                .departmentId(node.getDepartmentId())
-                .assignedUserId(node.getAssignedUserId())
-                .status(TaskStatus.PENDING)
-                .formSchema(node.getFormSchema())
-                .dueAt(dueAt)
-                .build();
+            .tenantId(tenantId)
+            .executionId(executionId)
+            .workflowId(workflowId)
+            .nodeId(node.getId())
+            .nodeName(node.getName())
+            .departmentId(node.getDepartmentId())
+            .assignedUserId(node.getAssignedUserId())
+            .status(TaskStatus.PENDING)
+            .formSchema(node.getFormSchema())
+            .dueAt(dueAt)
+            .build();
 
         Task saved = taskRepository.save(task);
-        log.info("Tarea creada: {} para nodo: {} en ejecución: {}", saved.getId(), node.getId(), executionId);
+        log.info("Tarea creada: {} para nodo: {} en ejecucion: {}", saved.getId(), node.getId(), executionId);
 
-        notifyAssignedUser(saved);
+        notificationService.notifyTaskAssigned(saved);
         return saved;
     }
 
@@ -86,12 +82,12 @@ public class TaskService {
         List<Task> byUser = taskRepository.findByTenantIdAndAssignedUserId(tenantId, userId);
 
         List<String> deptIds = departmentRepository
-                .findByTenantIdAndMemberUserIdsContaining(tenantId, userId)
-                .stream().map(Department::getId).toList();
+            .findByTenantIdAndMemberUserIdsContaining(tenantId, userId)
+            .stream().map(Department::getId).toList();
 
         List<Task> byDept = deptIds.isEmpty() ? List.of()
-                : taskRepository.findByTenantIdAndDepartmentIdIn(tenantId, deptIds)
-                        .stream().filter(t -> t.getAssignedUserId() == null).toList();
+            : taskRepository.findByTenantIdAndDepartmentIdIn(tenantId, deptIds)
+                .stream().filter(t -> t.getAssignedUserId() == null).toList();
 
         List<Task> combined = new ArrayList<>(byUser);
         combined.addAll(byDept);
@@ -106,7 +102,7 @@ public class TaskService {
         Task task = findByIdAndTenant(id);
 
         if (task.getStatus() != TaskStatus.PENDING) {
-            throw new RuntimeException("La tarea no está en estado PENDING");
+            throw new RuntimeException("La tarea no esta en estado PENDING");
         }
 
         String userId = SecurityUtils.getCurrentUserId();
@@ -122,7 +118,7 @@ public class TaskService {
         Task task = findByIdAndTenant(id);
 
         if (task.getStatus() != TaskStatus.IN_PROGRESS) {
-            throw new RuntimeException("La tarea no está en estado IN_PROGRESS");
+            throw new RuntimeException("La tarea no esta en estado IN_PROGRESS");
         }
 
         validateFormData(task.getFormSchema(), request.getFormData());
@@ -135,6 +131,7 @@ public class TaskService {
         log.info("Tarea {} completada", id);
 
         executionService.advance(task.getExecutionId(), task.getNodeId(), request.getFormData());
+        notificationService.notifyTaskCompleted(saved, SecurityUtils.getCurrentUserId());
 
         return TaskResponse.from(saved);
     }
@@ -155,9 +152,9 @@ public class TaskService {
     public List<TaskResponse> findByExecution(String executionId) {
         String tenantId = TenantContext.getTenantId();
         return taskRepository.findByTenantIdAndExecutionId(tenantId, executionId)
-                .stream()
-                .map(TaskResponse::from)
-                .toList();
+            .stream()
+            .map(TaskResponse::from)
+            .toList();
     }
 
     private void validateFormData(FormSchema schema, Map<String, Object> formData) {
@@ -168,39 +165,15 @@ public class TaskService {
             if (field.isRequired()) {
                 Object value = formData.get(field.getName());
                 if (value == null || value.toString().isBlank()) {
-                    throw new RuntimeException(
-                            "El campo '" + field.getLabel() + "' es requerido");
+                    throw new RuntimeException("El campo '" + field.getLabel() + "' es requerido");
                 }
             }
-        }
-    }
-
-    private void notifyAssignedUser(Task task) {
-        if (task.getAssignedUserId() != null) {
-            userDeviceRepository.findByUserId(task.getAssignedUserId())
-                    .forEach(device -> pushNotificationService.sendPushNotificationToDevice(
-                            device.getFcmToken(),
-                            "Nueva tarea asignada",
-                            "Tienes una nueva tarea: " + task.getNodeName()
-                    ));
-        } else if (task.getDepartmentId() != null) {
-            departmentRepository.findById(task.getDepartmentId()).ifPresent(dept ->
-                dept.getMemberUserIds().forEach(memberId ->
-                    userDeviceRepository.findByUserId(memberId)
-                            .forEach(device -> pushNotificationService.sendPushNotificationToDevice(
-                                    device.getFcmToken(),
-                                    "Nueva tarea disponible",
-                                    "Hay una nueva tarea para tu departamento: " + task.getNodeName()
-                            ))
-                )
-            );
         }
     }
 
     private Task findByIdAndTenant(String id) {
         String tenantId = TenantContext.getTenantId();
         return taskRepository.findByIdAndTenantId(id, tenantId)
-                .orElseThrow(() -> new RuntimeException(
-                        "Tarea no encontrada o no pertenece a tu empresa"));
+            .orElseThrow(() -> new RuntimeException("Tarea no encontrada o no pertenece a tu empresa"));
     }
 }

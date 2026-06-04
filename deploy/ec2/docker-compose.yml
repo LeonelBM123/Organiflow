@@ -1,0 +1,31 @@
+services:
+  frontend:
+    build:
+      context: ../../organiflow-frontend
+      dockerfile: dockerfile
+    container_name: organiflow-frontend
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8081:80"
+
+  backend:
+    build:
+      context: ../../organiflow
+      dockerfile: Dockerfile
+    container_name: organiflow-backend
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - "127.0.0.1:8001:8001"
+
+  ia:
+    build:
+      context: ../../organiflow-ia
+      dockerfile: dockerfile
+    container_name: organiflow-ia
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - "127.0.0.1:8005:8000"

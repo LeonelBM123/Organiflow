@@ -1,6 +1,7 @@
+
 # Plan de Implementación: Configuración de Nodos por Voz con LLM
 
-> **Estado:** ✅ Completado  
+> **Estado:** Pendiente  
 > **Fecha:** 2026-04-27  
 > **Alcance:** Microservicio `organiflow-ia` + componente `node-panel` de Angular
 
@@ -203,17 +204,17 @@ export interface NodeSchemaRequest {
 
 ### Fase A — Microservicio Python
 
-#### ✅ A1. `models.py` — Extender `NodeSchemaRequest`
+#### A1. `models.py` — Extender `NodeSchemaRequest`
 
 Añadir campo `voice_transcript: Optional[str] = None` con su Field descriptor.
 
-#### ✅ A2. `core/prompt_builder.py` — Actualizar `build_schema_system()`
+#### A2. `core/prompt_builder.py` — Actualizar `build_schema_system()`
 
 Añadir una sección en el prompt que instruya al modelo sobre cómo tratar
 la transcripción de voz cuando esté presente. El método no necesita parámetros;
 el contexto de voz llega en el mensaje de usuario (no en el system prompt).
 
-#### ✅ A3. `services/schema_generator_service.py` — Enriquecer el user message
+#### A3. `services/schema_generator_service.py` — Enriquecer el user message
 
 ```python
 # Lógica actual (solo texto):
@@ -240,7 +241,7 @@ user_message = (
 Cuando el usuario dicta, `voice_section` pasa al LLM como fuente primaria de
 intención. Claude da prioridad a la transcripción sobre el nombre genérico del nodo.
 
-#### ✅ A4. `tests/test_schema_generator.py` — Tests unitarios (nuevo archivo)
+#### A4. `tests/test_schema_generator.py` — Tests unitarios (nuevo archivo)
 
 - Test con solo `context` (comportamiento actual sin regresiones)
 - Test con `voice_transcript` presente → campos deben reflejar lo dictado
@@ -250,16 +251,16 @@ intención. Claude da prioridad a la transcripción sobre el nombre genérico de
 
 ### Fase B — Frontend Angular
 
-#### ✅ B1. `workflow.model.ts` — Añadir `voiceTranscript?` a `NodeSchemaRequest`
+#### B1. `workflow.model.ts` — Añadir `voiceTranscript?` a `NodeSchemaRequest`
 
 Un campo opcional, sin impacto en el código existente.
 
-#### ✅ B2. `ai.service.ts` — Sin cambios
+#### B2. `ai.service.ts` — Sin cambios
 
 El método `generateSchema(request: NodeSchemaRequest)` ya envía el objeto completo.
 Al agregar `voiceTranscript` al modelo, se serializa automáticamente si está definido.
 
-#### ✅ B3. `node-panel.component.ts` — Añadir lógica de voz
+#### B3. `node-panel.component.ts` — Añadir lógica de voz
 
 Nuevas señales:
 ```typescript
@@ -288,7 +289,7 @@ generateSchema(): void {
 }
 ```
 
-#### ✅ B4. `node-panel.component.html` — Añadir botón de micrófono
+#### B4. `node-panel.component.html` — Añadir botón de micrófono
 
 Añadir un botón mic junto al botón "Generar con IA" existente. El botón:
 - Solo se muestra si `isSpeechSupported()` es true
@@ -322,7 +323,7 @@ Añadir un botón mic junto al botón "Generar con IA" existente. El botón:
 }
 ```
 
-#### ✅ B5. `node-panel.component.scss` — Estilos del micrófono y preview
+#### B5. `node-panel.component.scss` — Estilos del micrófono y preview
 
 - `.generate-row` — flexbox horizontal para alinear mic + botón generar
 - `.btn-mic` — botón circular 30×30px, igual al del canvas

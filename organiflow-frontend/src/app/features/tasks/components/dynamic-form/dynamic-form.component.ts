@@ -1,6 +1,7 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  computed,
   inject,
   input,
   OnInit,
@@ -8,7 +9,7 @@ import {
   signal,
 } from '@angular/core';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { FormField, FormSchema } from '../../models/task.model';
+import { FormField, FormSchema, PreviousStepContext } from '../../models/task.model';
 import { AiService } from '../../../workflows/services/ai.service';
 
 // Web Speech API local types (not fully typed in all TypeScript versions)
@@ -42,11 +43,22 @@ export class DynamicFormComponent implements OnInit {
   initialData = input<Record<string, unknown>>({});
   isReadonly = input<boolean>(false);
   isSubmitting = input<boolean>(false);
+  previousStep = input<PreviousStepContext | null>(null);
 
   submitted = output<Record<string, unknown>>();
 
   readonly form = signal<FormGroup | null>(null);
   readonly sortedFields = signal<FormField[]>([]);
+  readonly previousStepEntries = computed(() => {
+    const context = this.previousStep();
+    if (!context?.formData) return [];
+
+    return Object.entries(context.formData).map(([key, value]) => ({
+      key,
+      label: this.humanizeKey(key),
+      displayValue: this.formatContextValue(value),
+    }));
+  });
 
   // ── Voice fill state ────────────────────────────────────────────
   readonly isRecording = signal(false);
@@ -181,5 +193,47 @@ export class DynamicFormComponent implements OnInit {
         this.isAiFillingForm.set(false);
       },
     });
+  }
+
+  formatContextDate(dateStr: string | null): string {
+    if (!dateStr) return 'Sin fecha registrada';
+    return new Date(dateStr).toLocaleString('es-ES', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  }
+
+  private humanizeKey(key: string): string {
+    return key
+      .replace(/_/g, ' ')
+      .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .replace(/^./, (char) => char.toUpperCase());
+  }
+
+  private formatContextValue(value: unknown): string {
+    if (value === null || value === undefined || value === '') {
+      return 'Sin dato';
+    }
+
+    if (typeof value === 'boolean') {
+      return value ? 'Sí' : 'No';
+    }
+
+    if (Array.isArray(value)) {
+      return value.length > 0
+        ? value.map(item => this.formatContextValue(item)).join(', ')
+        : 'Sin dato';
+    }
+
+    if (typeof value === 'object') {
+      return JSON.stringify(value, null, 2);
+    }
+
+    return String(value);
   }
 }

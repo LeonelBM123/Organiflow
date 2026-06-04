@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//c/Users/PC/Desktop/Organiflow/**)",
+      "Bash(cat ../organiflow-frontend/src/environments/*.ts)",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); configs=d['projects']['organiflow-frontend']['architect']['build']['configurations']; print\\(json.dumps\\(configs, indent=2\\)\\)\")",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\(json.dumps\\(d.get\\('compilerOptions',{}\\), indent=2\\)\\)\")"
+    ]
+  }
+}
