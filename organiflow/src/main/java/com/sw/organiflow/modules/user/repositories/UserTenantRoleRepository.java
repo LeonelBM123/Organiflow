@@ -19,6 +19,12 @@ public interface UserTenantRoleRepository extends MongoRepository<UserTenantRole
     // Todos los tenants de un usuario (para la vista multitenant)
     List<UserTenantRole> findByUserIdAndIsActiveTrue(String userId);
 
+    // Todas las membresías activas de un tenant (para la gestión de usuarios)
+    List<UserTenantRole> findByTenantIdAndIsActiveTrue(String tenantId);
+
+    // Membresía de un usuario en un tenant (activa o no) — para update/delete
+    Optional<UserTenantRole> findByUserIdAndTenantId(String userId, String tenantId);
+
     // Todos los usuarios de un tenant con un rol específico
     List<UserTenantRole> findByTenantIdAndRoleAndIsActiveTrue(
             String tenantId, UserRole role

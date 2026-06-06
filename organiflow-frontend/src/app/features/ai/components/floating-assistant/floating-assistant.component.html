@@ -1,0 +1,67 @@
+<!-- Botón flotante cuando está cerrado -->
+@if (!isVisible()) {
+  <button
+    class="btn-reopen"
+    (click)="assistantService.show()"
+    aria-label="Abrir asistente virtual">
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z"/>
+    </svg>
+    <span>Asistente</span>
+  </button>
+}
+
+<!-- Widget principal -->
+@if (isVisible()) {
+  <div class="assistant-widget" role="complementary" aria-label="Asistente virtual de Organiflow">
+
+    <!-- Burbuja de diálogo del avatar -->
+    @if (showResponse()) {
+      <div class="speech-bubble" role="status" aria-live="polite">
+        @if (isThinking()) {
+          <div class="thinking" aria-label="El asistente está pensando">
+            <span></span><span></span><span></span>
+          </div>
+        } @else {
+          <p class="bubble-text">{{ cleanedResponse() }}</p>
+        }
+      </div>
+    }
+
+    <!-- Preguntas sugeridas -->
+    @if (suggestedQuestions().length && !isThinking() && !aiResponseText()) {
+      <div class="suggestions" role="list" aria-label="Preguntas sugeridas">
+        @for (q of suggestedQuestions(); track q) {
+          <button
+            class="suggestion-btn"
+            role="listitem"
+            [disabled]="isThinking()"
+            (click)="onSuggestion(q)">
+            {{ q }}
+          </button>
+        }
+      </div>
+    }
+
+    <!-- Avatar 3D flotante — X en esquina superior derecha -->
+    <div class="avatar-area" aria-hidden="true">
+      <button class="btn-close" (click)="onClose()" aria-label="Cerrar asistente">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
+          <line x1="18" y1="6" x2="6" y2="18"/>
+          <line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+      <app-avatar
+        [avatarPath]="selectedAvatar().path"
+        [audioElement]="audioEl"
+        [lipSyncData]="lipSyncData()"
+      />
+    </div>
+
+    <!-- Barra de input -->
+    <div class="controls-row">
+      <app-assistant-chat (askQuestion)="onAskQuestion($event)" />
+    </div>
+
+  </div>
+}

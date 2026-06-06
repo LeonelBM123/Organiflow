@@ -121,6 +121,7 @@
       [node]="selectedNode()"
       [departments]="panelDepartments()"
       [users]="tenantUsers()"
+      [workflowId]="workflowId()"
       [class.open]="!!selectedNode()"
       (save)="onNodePropertiesSaved($event)"
       (close)="selectedNode.set(null)">

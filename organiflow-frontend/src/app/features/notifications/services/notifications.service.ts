@@ -228,6 +228,14 @@ export class NotificationsService {
       return ['/user/executions', notification.entityId];
     }
 
+    if (notification.entityType === 'document') {
+      switch (role) {
+        case 'ADMIN': return ['/admin/documents'];
+        case 'OFFICER': return ['/officer/documents'];
+        case 'USER': return ['/user/documents'];
+      }
+    }
+
     switch (role) {
       case 'ADMIN':
         return ['/admin/notifications'];

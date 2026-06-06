@@ -1,0 +1,85 @@
+<div class="form-card" role="dialog" [attr.aria-label]="isEdit ? 'Editar usuario' : 'Nuevo usuario'" aria-modal="true">
+  <h2 class="form-title">{{ isEdit ? 'Editar usuario' : 'Nuevo usuario' }}</h2>
+
+  <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
+    <div class="fields">
+      <div class="field-group">
+        <label class="field-label" for="user-name">Nombre <span aria-hidden="true">*</span></label>
+        <input
+          id="user-name"
+          class="field-input"
+          formControlName="name"
+          placeholder="Ej: Ana Pérez"
+          autocomplete="off"
+          aria-required="true"
+        />
+        @if (form.get('name')?.invalid && form.get('name')?.touched) {
+          <span class="field-error" role="alert">El nombre es requerido (mínimo 2 caracteres)</span>
+        }
+      </div>
+
+      <div class="field-group">
+        <label class="field-label" for="user-email">Email <span aria-hidden="true">*</span></label>
+        <input
+          id="user-email"
+          type="email"
+          class="field-input"
+          formControlName="email"
+          placeholder="usuario@empresa.com"
+          autocomplete="off"
+          aria-required="true"
+        />
+        @if (form.get('email')?.invalid && form.get('email')?.touched) {
+          <span class="field-error" role="alert">Ingresa un email válido</span>
+        }
+      </div>
+
+      @if (!isEdit) {
+        <div class="field-group">
+          <label class="field-label" for="user-password">Contraseña <span aria-hidden="true">*</span></label>
+          <input
+            id="user-password"
+            type="password"
+            class="field-input"
+            formControlName="password"
+            placeholder="Mínimo 8 caracteres"
+            autocomplete="new-password"
+            aria-required="true"
+          />
+          @if (form.get('password')?.invalid && form.get('password')?.touched) {
+            <span class="field-error" role="alert">La contraseña debe tener al menos 8 caracteres</span>
+          }
+        </div>
+      }
+
+      <div class="field-group">
+        <label class="field-label" for="user-role">Rol <span aria-hidden="true">*</span></label>
+        <select id="user-role" class="field-input" formControlName="role" aria-required="true">
+          @for (opt of roleOptions; track opt.value) {
+            <option [value]="opt.value">{{ opt.label }}</option>
+          }
+        </select>
+      </div>
+
+      @if (isEdit) {
+        <div class="field-group field-group--checkbox">
+          <label class="checkbox-label" for="user-active">
+            <input id="user-active" type="checkbox" formControlName="active" />
+            <span>Usuario activo en la empresa</span>
+          </label>
+        </div>
+      }
+    </div>
+
+    @if (errorMessage()) {
+      <p class="form-error" role="alert">{{ errorMessage() }}</p>
+    }
+
+    <div class="form-actions">
+      <button type="button" class="btn-secondary" (click)="cancel()">Cancelar</button>
+      <button type="submit" class="btn-primary" [disabled]="form.invalid || isSubmitting()">
+        @if (isSubmitting()) { Guardando... } @else { {{ isEdit ? 'Guardar cambios' : 'Crear usuario' }} }
+      </button>
+    </div>
+  </form>
+</div>

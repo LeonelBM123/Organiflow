@@ -24,6 +24,12 @@ public class TaskController {
         return ResponseEntity.ok(taskService.findMine());
     }
 
+    @GetMapping("/department")
+    @PreAuthorize("hasAnyRole('admin', 'officer', 'user')")
+    public ResponseEntity<List<TaskResponse>> findDepartmentTasks() {
+        return ResponseEntity.ok(taskService.findDepartmentTasks());
+    }
+
     @GetMapping("/{id}")
     @PreAuthorize("hasAnyRole('admin', 'officer', 'user')")
     public ResponseEntity<TaskResponse> findById(@PathVariable String id) {

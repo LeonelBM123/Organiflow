@@ -8,6 +8,22 @@
     </div>
   </div>
 
+  <!-- Scope: mis tareas vs del departamento -->
+  <div class="filter-bar" role="group" aria-label="Alcance de tareas">
+    <button
+      class="filter-btn"
+      [class.active]="scope() === 'mine'"
+      (click)="setScope('mine')"
+      aria-pressed="{{ scope() === 'mine' }}"
+    >Mis Tareas</button>
+    <button
+      class="filter-btn"
+      [class.active]="scope() === 'department'"
+      (click)="setScope('department')"
+      aria-pressed="{{ scope() === 'department' }}"
+    >Del departamento</button>
+  </div>
+
   <!-- Filters -->
   <div class="filter-bar" role="group" aria-label="Filtrar tareas por estado">
     <button

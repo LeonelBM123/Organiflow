@@ -1,0 +1,2 @@
+# Variables de entorno con secretos (copiar .env.example -> .env)
+.env

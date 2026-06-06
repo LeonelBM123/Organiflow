@@ -23,10 +23,11 @@ import { WorkflowNode, NodeType, FormField, FieldType, FormSchema } from '../../
 import { Department } from '../../../../departments/models/department.model';
 import { UserSummary } from '../../../../../core/services/user.service';
 import { AiService } from '../../../services/ai.service';
+import { DocumentSectionComponent } from '../../../../documents/components/document-section/document-section.component';
 
 @Component({
   selector: 'app-node-panel',
-  imports: [ReactiveFormsModule],
+  imports: [ReactiveFormsModule, DocumentSectionComponent],
   templateUrl: './node-panel.component.html',
   styleUrl: './node-panel.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush
@@ -40,6 +41,7 @@ export class NodePanelComponent implements OnInit, OnDestroy {
   readonly node = input<WorkflowNode | null>(null);
   readonly departments = input<Department[]>([]);
   readonly users = input<UserSummary[]>([]);
+  readonly workflowId = input<string>('');
   readonly save = output<WorkflowNode>();
   readonly close = output<void>();
 

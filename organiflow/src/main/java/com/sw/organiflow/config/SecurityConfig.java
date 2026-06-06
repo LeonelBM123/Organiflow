@@ -71,6 +71,10 @@ public class SecurityConfig {
                                 "/favicon.ico"
                         ).permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/users").permitAll()
+                        // Callback del Document Server de OnlyOffice (se valida con su propio JWT)
+                        .requestMatchers(HttpMethod.POST, "/api/v1/documents/*/onlyoffice/callback").permitAll()
+                        // Proxy de descarga para el Document Server (se valida con token firmado)
+                        .requestMatchers(HttpMethod.GET, "/api/v1/documents/*/onlyoffice/file").permitAll()
                         .anyRequest().authenticated()
                 )
                 .authenticationProvider(authenticationProvider())

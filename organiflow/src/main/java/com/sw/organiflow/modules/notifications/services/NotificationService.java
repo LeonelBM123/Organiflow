@@ -80,6 +80,24 @@ public class NotificationService {
             ));
     }
 
+    /** Avisa a un usuario que el admin le compartió (dio permiso sobre) un documento. */
+    public void notifyDocumentShared(String tenantId, String userId, String documentId, String documentName) {
+        Map<String, Object> metadata = new HashMap<>();
+        metadata.put("documentId", documentId);
+
+        createAndDispatch(
+            tenantId,
+            userId,
+            NotificationType.DOCUMENT_SHARED,
+            "Te compartieron un documento",
+            "Tienes acceso al documento '" + safe(documentName) + "'.",
+            "document",
+            documentId,
+            NotificationPriority.MEDIUM,
+            metadata
+        );
+    }
+
     public void notifyTaskCompleted(Task task, String completedByUserId) {
         if (task.getAssignedUserId() == null || task.getAssignedUserId().isBlank()) {
             return;
@@ -388,6 +406,7 @@ public class NotificationService {
                 : "/notifications";
             case "execution" -> "/execution-history";
             case "workflow" -> "/admin-workflows";
+            case "document" -> "/documents";
             default -> "/notifications";
         };
     }

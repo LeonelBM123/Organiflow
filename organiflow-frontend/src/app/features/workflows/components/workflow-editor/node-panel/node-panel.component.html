@@ -297,6 +297,15 @@
             </label>
           </div>
         </div>
+
+        <!-- Documentos del paso (plantillas adjuntas por el admin) -->
+        <app-document-section
+          [workflowId]="workflowId()"
+          [nodeId]="node()?.id ?? null"
+          [departmentId]="selectedDepartmentId() || null"
+          scope="TEMPLATE"
+          [canManagePermissions]="true"
+        />
       }
 
       <!-- Acciones -->

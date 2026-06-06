@@ -49,6 +49,13 @@ export const routes: Routes = [
     children: [
       { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
       {
+        path: 'documents',
+        loadComponent: () =>
+          import('./features/documents/components/shared-documents/shared-documents.component').then(
+            (m) => m.SharedDocumentsComponent
+          )
+      },
+      {
         path: 'dashboard',
         loadComponent: () =>
           import('./features/dashboard/components/admin-dashboard/admin-dashboard.component').then(
@@ -79,8 +86,8 @@ export const routes: Routes = [
       {
         path: 'users',
         loadComponent: () =>
-          import('./features/dashboard/components/admin-dashboard/admin-dashboard.component').then(
-            (m) => m.AdminDashboardComponent
+          import('./features/users/components/user-list/user-list.component').then(
+            (m) => m.UserListComponent
           )
       },
       {
@@ -104,6 +111,13 @@ export const routes: Routes = [
     data: { roles: [UserRole.OFFICER] },
     children: [
       { path: '', redirectTo: 'tasks', pathMatch: 'full' },
+      {
+        path: 'documents',
+        loadComponent: () =>
+          import('./features/documents/components/shared-documents/shared-documents.component').then(
+            (m) => m.SharedDocumentsComponent
+          )
+      },
       {
         path: 'tasks',
         loadComponent: () =>
@@ -153,6 +167,13 @@ export const routes: Routes = [
     data: { roles: [UserRole.USER] },
     children: [
       { path: '', redirectTo: 'executions', pathMatch: 'full' },
+      {
+        path: 'documents',
+        loadComponent: () =>
+          import('./features/documents/components/shared-documents/shared-documents.component').then(
+            (m) => m.SharedDocumentsComponent
+          )
+      },
       {
         path: 'executions',
         loadComponent: () =>

@@ -1,0 +1,42 @@
+# Infra de desarrollo para los documentos colaborativos de Organiflow:
+#   - MinIO          → almacenamiento S3-compatible (Fase 1)
+#   - OnlyOffice DS  → co-edición de Office en el navegador (Fase 2)
+#
+# El backend de Spring corre aparte (mvn spring-boot:run) en el host (puerto 8001).
+# Ver organiflow/ONLYOFFICE_SETUP.md y organiflow/S3_SETUP.md.
+
+services:
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"   # API S3
+      - "9001:9001"   # Consola web (http://localhost:9001)
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    volumes:
+      - minio-data:/data
+    restart: unless-stopped
+
+  onlyoffice:
+    image: onlyoffice/documentserver:latest
+    ports:
+      - "8082:80"     # Document Server → app.onlyoffice.url=http://localhost:8082
+    environment:
+      # Debe coincidir con app.onlyoffice.jwt-secret del backend.
+      JWT_ENABLED: "true"
+      JWT_SECRET: "onlyoffice-dev-secret-min-32-characters-long"
+      JWT_HEADER: "Authorization"
+    extra_hosts:
+      # Permite que el DS alcance el backend del host (callback) vía host.docker.internal.
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - onlyoffice-data:/var/www/onlyoffice/Data
+      - onlyoffice-logs:/var/log/onlyoffice
+    restart: unless-stopped
+
+volumes:
+  minio-data:
+  onlyoffice-data:
+  onlyoffice-logs:

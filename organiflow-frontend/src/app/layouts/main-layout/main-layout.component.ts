@@ -5,6 +5,7 @@ import { UserRole } from '../../core/enums/user-role.enum';
 import { NotificationsService } from '../../features/notifications/services/notifications.service';
 import { NavbarComponent } from '../../shared/components/navbar/navbar.component';
 import { SidebarComponent } from '../../shared/components/sidebar/sidebar.component';
+import { FloatingAssistantComponent } from '../../features/ai/components/floating-assistant/floating-assistant.component';
 import { NavItem, RoleBadge } from '../../shared/models/nav-item.model';
 
 const ADMIN_NAV: NavItem[] = [
@@ -27,6 +28,11 @@ const ADMIN_NAV: NavItem[] = [
     label: 'Usuarios',
     route: '/admin/users',
     iconPath: 'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z'
+  },
+  {
+    label: 'Documentos',
+    route: '/admin/documents',
+    iconPath: 'M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z'
   }
 ];
 
@@ -40,6 +46,11 @@ const OFFICER_NAV: NavItem[] = [
     label: 'Completadas',
     route: '/officer/completed',
     iconPath: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z'
+  },
+  {
+    label: 'Documentos',
+    route: '/officer/documents',
+    iconPath: 'M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z'
   },
   {
     label: 'Mi Perfil',
@@ -70,6 +81,11 @@ const USER_NAV: NavItem[] = [
     iconPath: 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z'
   },
   {
+    label: 'Documentos',
+    route: '/user/documents',
+    iconPath: 'M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z'
+  },
+  {
     label: 'Mi Perfil',
     route: '/user/profile',
     iconPath: 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z'
@@ -93,7 +109,7 @@ const ROLE_BADGE: Record<UserRole, RoleBadge> = {
 
 @Component({
   selector: 'app-main-layout',
-  imports: [RouterOutlet, NavbarComponent, SidebarComponent],
+  imports: [RouterOutlet, NavbarComponent, SidebarComponent, FloatingAssistantComponent],
   templateUrl: './main-layout.component.html',
   styleUrl: './main-layout.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush

@@ -1,0 +1,27 @@
+<input
+  type="text"
+  class="chat-input"
+  [ngModel]="question()"
+  (ngModelChange)="question.set($event)"
+  (keydown)="handleKeydown($event)"
+  [disabled]="isThinking()"
+  placeholder="Pregúntame algo..."
+  aria-label="Pregunta al asistente"
+  autocomplete="off"
+/>
+<button
+  class="btn-send"
+  [disabled]="!question().trim() || isThinking()"
+  (click)="handleSend()"
+  aria-label="Enviar pregunta">
+  @if (isThinking()) {
+    <svg class="spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" stroke-dasharray="31.4 31.4" />
+    </svg>
+  } @else {
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+      <line x1="22" y1="2" x2="11" y2="13"/>
+      <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+    </svg>
+  }
+</button>

@@ -1,6 +1,7 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  computed,
   inject,
   OnInit,
   signal,
@@ -11,10 +12,13 @@ import { ExecutionService } from '../../../executions/services/execution.service
 import { TaskService } from '../../services/task.service';
 import { PreviousStepContext, TaskResponse, TaskStatus } from '../../models/task.model';
 import { DynamicFormComponent } from '../dynamic-form/dynamic-form.component';
+import { DocumentSectionComponent } from '../../../documents/components/document-section/document-section.component';
+import { AuthService } from '../../../../core/services/auth.service';
+import { UserRole } from '../../../../core/enums/user-role.enum';
 
 @Component({
   selector: 'app-task-detail',
-  imports: [DynamicFormComponent],
+  imports: [DynamicFormComponent, DocumentSectionComponent],
   templateUrl: './task-detail.component.html',
   styleUrl: './task-detail.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -24,6 +28,9 @@ export class TaskDetailComponent implements OnInit {
   private readonly executionService = inject(ExecutionService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
+  private readonly authService = inject(AuthService);
+
+  readonly isAdmin = computed(() => this.authService.userRole() === UserRole.ADMIN);
 
   readonly task = signal<TaskResponse | null>(null);
   readonly previousStepContext = signal<PreviousStepContext | null>(null);

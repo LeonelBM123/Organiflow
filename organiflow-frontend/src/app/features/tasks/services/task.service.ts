@@ -13,6 +13,11 @@ export class TaskService {
     return this.http.get<TaskResponse[]>(this.base);
   }
 
+  /** Tareas activas de los departamentos del usuario (incluidas las asignadas a otros). */
+  findDepartmentTasks(): Observable<TaskResponse[]> {
+    return this.http.get<TaskResponse[]>(`${this.base}/department`);
+  }
+
   findById(id: string): Observable<TaskResponse> {
     return this.http.get<TaskResponse>(`${this.base}/${id}`);
   }

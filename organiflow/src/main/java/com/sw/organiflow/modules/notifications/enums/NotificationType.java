@@ -13,5 +13,6 @@ public enum NotificationType {
     WORKFLOW_PUBLISHED,
     WORKFLOW_UPDATED,
     SYSTEM_ALERT,
-    SLA_WARNING
+    SLA_WARNING,
+    DOCUMENT_SHARED
 }

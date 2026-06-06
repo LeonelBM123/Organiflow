@@ -1,0 +1,202 @@
+/* ── Contenedor fijo bottom-right ─────────────────────────── */
+:host {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 50;
+  display: block;
+}
+
+/* ── Botón de reapertura ──────────────────────────────────── */
+.btn-reopen {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  background: var(--primary-500);
+  color: #fff;
+  border: none;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+  transition: background 150ms, transform 150ms;
+
+  svg {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+  }
+
+  &:hover {
+    background: var(--primary-600);
+    transform: translateY(-2px);
+  }
+}
+
+/* ── Widget principal sin fondo ───────────────────────────── */
+.assistant-widget {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  width: 300px;
+  animation: slideUp 0.25s ease-out;
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(16px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* ── Burbuja de diálogo ───────────────────────────────────── */
+.speech-bubble {
+  position: relative;
+  background: var(--surface-0, #fff);
+  border: 1px solid var(--border-subtle);
+  border-radius: 16px;
+  padding: 12px 16px;
+  margin-bottom: 4px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.18);
+  max-height: 130px;
+  overflow-y: auto;
+
+  /* Cola apuntando abajo-derecha hacia el avatar */
+  &::before {
+    content: '';
+    position: absolute;
+    bottom: -10px;
+    right: 28px;
+    border-left: 10px solid transparent;
+    border-right: 10px solid transparent;
+    border-top: 10px solid var(--border-subtle);
+  }
+
+  &::after {
+    content: '';
+    position: absolute;
+    bottom: -8px;
+    right: 29px;
+    border-left: 9px solid transparent;
+    border-right: 9px solid transparent;
+    border-top: 9px solid var(--surface-0, #fff);
+  }
+}
+
+.bubble-text {
+  font-size: 13px;
+  color: var(--text-primary);
+  line-height: 1.55;
+  margin: 0;
+}
+
+/* ── Animación "pensando" ─────────────────────────────────── */
+.thinking {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+  padding: 2px 0;
+
+  span {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--primary-400);
+    animation: bounce 1.2s infinite ease-in-out;
+
+    &:nth-child(1) { animation-delay: 0s; }
+    &:nth-child(2) { animation-delay: 0.2s; }
+    &:nth-child(3) { animation-delay: 0.4s; }
+  }
+}
+
+@keyframes bounce {
+  0%, 80%, 100% { transform: scale(0.7); opacity: 0.5; }
+  40%            { transform: scale(1);   opacity: 1;   }
+}
+
+/* ── Preguntas sugeridas ──────────────────────────────────── */
+.suggestions {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-bottom: 4px;
+}
+
+.suggestion-btn {
+  background: var(--surface-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  padding: 7px 12px;
+  font-size: 11.5px;
+  color: var(--text-secondary);
+  text-align: left;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transition: background 150ms, color 150ms;
+
+  &:hover:not(:disabled) {
+    background: var(--surface-2);
+    color: var(--text-primary);
+  }
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+}
+
+/* ── Área del avatar con X en esquina ─────────────────────── */
+.avatar-area {
+  position: relative;
+  width: 100%;
+  height: 300px;
+
+  app-avatar {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+}
+
+/* ── Botón cerrar (esquina superior derecha del avatar) ────── */
+.btn-close {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--surface-1);
+  border: 1px solid var(--border-subtle);
+  cursor: pointer;
+  color: var(--text-secondary);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  transition: background 150ms, color 150ms, transform 150ms;
+
+  svg {
+    width: 13px;
+    height: 13px;
+  }
+
+  &:hover {
+    background: var(--surface-2);
+    color: var(--text-primary);
+    transform: scale(1.1);
+  }
+}
+
+/* ── Barra de input pill ──────────────────────────────────── */
+.controls-row {
+  display: flex;
+  align-items: center;
+  background: var(--surface-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: 999px;
+  padding: 4px 4px 4px 14px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+}

@@ -1,0 +1,92 @@
+<div class="docs-section">
+  <div class="docs-divider" role="separator" aria-label="Sección documentos">
+    <span>Documentos</span>
+  </div>
+
+  @if (!ready()) {
+    <p class="docs-hint">
+      Guarda el nodo para poder adjuntar documentos.
+    </p>
+  } @else {
+    <!-- Zona de subida -->
+    <label
+      class="docs-dropzone"
+      (drop)="onDrop($event)"
+      (dragover)="onDragOver($event)"
+    >
+      <input
+        type="file"
+        multiple
+        class="docs-file-input"
+        [accept]="acceptTypes"
+        (change)="onFilesSelected($event)"
+      />
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M12 16V4m0 0L7 9m5-5l5 5M5 20h14" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <span class="docs-dropzone-text">
+        Arrastra archivos o haz clic para subir
+        <small>Word, Excel, PowerPoint, PDF, imágenes y video</small>
+      </span>
+    </label>
+
+    @if (uploading()) {
+      <p class="docs-status">Subiendo…</p>
+    }
+    @if (errorMsg()) {
+      <p class="docs-error">{{ errorMsg() }}</p>
+    }
+
+    <!-- Lista de documentos -->
+    @if (loading()) {
+      <p class="docs-status">Cargando documentos…</p>
+    } @else if (documents().length === 0) {
+      <p class="docs-empty">Aún no hay documentos en este paso.</p>
+    } @else {
+      <ul class="docs-list">
+        @for (doc of documents(); track doc.id) {
+          <li class="docs-item">
+            <span class="docs-badge" [attr.data-cat]="doc.category">{{ categoryLabel[doc.category] }}</span>
+            <div class="docs-meta">
+              <span class="docs-name" [title]="doc.originalName">{{ doc.originalName }}</span>
+              <span class="docs-sub">{{ formatSize(doc.sizeBytes) }} · v{{ doc.currentVersion }}</span>
+            </div>
+            <div class="docs-actions">
+              @if (canCoEdit(doc)) {
+                <button type="button" class="docs-act docs-act--primary" (click)="openEditor(doc)" aria-label="Abrir editor">{{ editorActionLabel(doc) }}</button>
+              } @else if (canPreview(doc)) {
+                <button type="button" class="docs-act" (click)="openViewer(doc)" aria-label="Ver">Ver</button>
+              }
+              @if (doc.myPermission.canDownload) {
+                <button type="button" class="docs-act" (click)="download(doc)" aria-label="Descargar">Descargar</button>
+              }
+              @if (canManagePermissions()) {
+                <button type="button" class="docs-act" (click)="openPermissions(doc)" aria-label="Permisos">Permisos</button>
+              }
+              @if (canDelete(doc)) {
+                <button type="button" class="docs-act docs-act--danger" (click)="delete(doc)" aria-label="Eliminar">Eliminar</button>
+              }
+            </div>
+          </li>
+        }
+      </ul>
+    }
+  }
+</div>
+
+@if (viewerTarget(); as doc) {
+  <app-media-viewer [document]="doc" (close)="viewerTarget.set(null)" />
+}
+
+@if (permissionTarget(); as doc) {
+  <app-document-permission-editor
+    [document]="doc"
+    [departmentId]="departmentId()"
+    (saved)="onPermissionsSaved($event)"
+    (close)="permissionTarget.set(null)"
+  />
+}
+
+@if (editorTarget(); as doc) {
+  <app-document-editor [document]="doc" (close)="editorTarget.set(null)" />
+}

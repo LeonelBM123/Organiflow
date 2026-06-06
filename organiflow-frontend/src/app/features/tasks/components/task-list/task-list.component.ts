@@ -26,6 +26,8 @@ export class TaskListComponent implements OnInit {
   readonly tasks = signal<TaskResponse[]>([]);
   readonly isLoading = signal(true);
   readonly statusFilter = signal<StatusFilter>('all');
+  /** Alcance: mis tareas vs todas las del departamento (para colaborar en sus documentos). */
+  readonly scope = signal<'mine' | 'department'>('mine');
 
   readonly filteredTasks = computed(() => {
     const filter = this.statusFilter();
@@ -51,13 +53,22 @@ export class TaskListComponent implements OnInit {
 
   private load(): void {
     this.isLoading.set(true);
-    this.taskService.findMine().subscribe({
+    const source$ = this.scope() === 'department'
+      ? this.taskService.findDepartmentTasks()
+      : this.taskService.findMine();
+    source$.subscribe({
       next: (list) => {
         this.tasks.set(list);
         this.isLoading.set(false);
       },
       error: () => this.isLoading.set(false),
     });
+  }
+
+  setScope(scope: 'mine' | 'department'): void {
+    if (this.scope() === scope) return;
+    this.scope.set(scope);
+    this.load();
   }
 
   setFilter(filter: StatusFilter): void {

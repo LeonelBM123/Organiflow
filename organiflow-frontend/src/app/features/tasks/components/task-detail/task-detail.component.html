@@ -107,6 +107,24 @@
       </div>
     }
 
+    <!-- Documentos de la tarea (subida en ejecución / consulta) -->
+    @if (task()!.status === 'IN_PROGRESS' || task()!.status === 'DONE') {
+      <div class="section">
+        <h2 class="section-title">Documentos</h2>
+        <div class="form-card">
+          <app-document-section
+            [workflowId]="task()!.workflowId"
+            [nodeId]="task()!.nodeId"
+            [departmentId]="task()!.departmentId"
+            scope="RUNTIME"
+            [executionId]="task()!.executionId"
+            [taskId]="task()!.id"
+            [canManagePermissions]="isAdmin()"
+          />
+        </div>
+      </div>
+    }
+
     <!-- ESCALATED / SKIPPED -->
     @if (task()!.status === 'ESCALATED' || task()!.status === 'SKIPPED') {
       <div class="action-card" role="status">

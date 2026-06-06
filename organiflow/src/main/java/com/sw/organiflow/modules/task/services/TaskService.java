@@ -98,6 +98,24 @@ public class TaskService {
         return TaskResponse.from(findByIdAndTenant(id));
     }
 
+    /** Tareas activas (pendientes o en progreso) de los departamentos del usuario, incluidas
+     *  las asignadas a otros — para que cualquier miembro pueda colaborar en sus documentos. */
+    public List<TaskResponse> findDepartmentTasks() {
+        String tenantId = TenantContext.getTenantId();
+        String userId = SecurityUtils.getCurrentUserId();
+
+        List<String> deptIds = departmentRepository
+            .findByTenantIdAndMemberUserIdsContaining(tenantId, userId)
+            .stream().map(Department::getId).toList();
+
+        if (deptIds.isEmpty()) return List.of();
+
+        return taskRepository.findByTenantIdAndDepartmentIdIn(tenantId, deptIds).stream()
+            .filter(t -> t.getStatus() == TaskStatus.PENDING || t.getStatus() == TaskStatus.IN_PROGRESS)
+            .map(TaskResponse::from)
+            .toList();
+    }
+
     public TaskResponse start(String id) {
         Task task = findByIdAndTenant(id);
 
