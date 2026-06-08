@@ -9,10 +9,11 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { TaskService } from '../../services/task.service';
 import { TaskResponse } from '../../models/task.model';
 import { DynamicFormComponent } from '../dynamic-form/dynamic-form.component';
+import { DocumentSectionComponent } from '../../../documents/components/document-section/document-section.component';
 
 @Component({
   selector: 'app-form-detail',
-  imports: [DynamicFormComponent],
+  imports: [DynamicFormComponent, DocumentSectionComponent],
   templateUrl: './form-detail.component.html',
   styleUrl: './form-detail.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

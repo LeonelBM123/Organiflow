@@ -3,14 +3,22 @@ package com.sw.organiflow.modules.documents.services;
 import com.sw.organiflow.modules.documents.dtos.DocumentPermissionDto;
 import com.sw.organiflow.modules.documents.models.DocumentAsset;
 import com.sw.organiflow.modules.documents.models.DocumentPermission;
+import com.sw.organiflow.modules.documents.models.DocumentScope;
 import org.springframework.stereotype.Service;
 
 /**
  * Resuelve el permiso efectivo de un usuario sobre un documento.
  *
- * <p>Regla: el rol {@code admin} del tenant siempre tiene acceso total. Cualquier otro usuario
- * solo tiene los permisos que figuren explicitamente en la lista del documento (asignados por
- * el admin entre los miembros del departamento del nodo).</p>
+ * <p>Reglas:
+ * <ul>
+ *   <li>El rol {@code admin} del tenant siempre tiene acceso total.</li>
+ *   <li>Los documentos {@code TEMPLATE} (configuracion del workflow) son visibles y
+ *       descargables por cualquier usuario autenticado del tenant; son materiales de
+ *       referencia, no documentos sensibles.</li>
+ *   <li>Los documentos {@code RUNTIME} solo son accesibles segun los permisos
+ *       explicitamente asignados por el admin.</li>
+ * </ul>
+ * </p>
  */
 @Service
 public class DocumentPermissionService {
@@ -22,6 +30,15 @@ public class DocumentPermissionService {
         if (isAdmin(role)) {
             return new DocumentPermissionDto(userId, true, true, true, true);
         }
+        // Documentos de plantilla: el usuario siempre puede ver y descargar.
+        // Si además tiene permisos explícitos, se usan esos.
+        if (doc.getScope() == DocumentScope.TEMPLATE) {
+            return doc.getPermissions().stream()
+                    .filter(p -> p.getUserId() != null && p.getUserId().equals(userId))
+                    .findFirst()
+                    .map(DocumentPermissionDto::from)
+                    .orElse(new DocumentPermissionDto(userId, true, false, false, true));
+        }
         return doc.getPermissions().stream()
                 .filter(p -> p.getUserId() != null && p.getUserId().equals(userId))
                 .findFirst()
@@ -31,6 +48,8 @@ public class DocumentPermissionService {
 
     public boolean canView(DocumentAsset doc, String userId, String role) {
         if (isAdmin(role)) return true;
+        // Los documentos de plantilla son visibles para todos los usuarios del tenant.
+        if (doc.getScope() == DocumentScope.TEMPLATE) return true;
         return matching(doc, userId, DocumentPermission::isCanView);
     }
 
@@ -41,6 +60,7 @@ public class DocumentPermissionService {
 
     public boolean canDownload(DocumentAsset doc, String userId, String role) {
         if (isAdmin(role)) return true;
+        if (doc.getScope() == DocumentScope.TEMPLATE) return true;
         return matching(doc, userId, DocumentPermission::isCanDownload);
     }
 

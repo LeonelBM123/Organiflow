@@ -1,6 +1,8 @@
 package com.sw.organiflow.modules.execution.services;
 
 import com.sw.organiflow.config.TenantContext;
+import com.sw.organiflow.modules.activity.models.ActivityEventType;
+import com.sw.organiflow.modules.activity.services.ActivityEventService;
 import com.sw.organiflow.modules.execution.dtos.ExecutionRequest;
 import com.sw.organiflow.modules.execution.dtos.ExecutionResponse;
 import com.sw.organiflow.modules.execution.dtos.ExecutionSummaryResponse;
@@ -20,6 +22,7 @@ import com.sw.organiflow.shared.enums.TaskStatus;
 import com.sw.organiflow.shared.enums.WorkflowStatus;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
@@ -35,16 +38,19 @@ public class ExecutionService {
     private final WorkflowRepository workflowRepository;
     private final TaskService taskService;
     private final NotificationService notificationService;
+    private final ActivityEventService activityEventService;
 
     @Autowired
     public ExecutionService(ExecutionRepository executionRepository,
                             WorkflowRepository workflowRepository,
-                            TaskService taskService,
-                            NotificationService notificationService) {
+                            @Lazy TaskService taskService,
+                            NotificationService notificationService,
+                            ActivityEventService activityEventService) {
         this.executionRepository = executionRepository;
         this.workflowRepository = workflowRepository;
         this.taskService = taskService;
         this.notificationService = notificationService;
+        this.activityEventService = activityEventService;
     }
 
     public ExecutionResponse start(ExecutionRequest request) {
@@ -102,6 +108,10 @@ public class ExecutionService {
         Execution saved = executionRepository.save(execution);
         log.info("Ejecucion iniciada: {} workflow: {} tenant: {}", saved.getId(), workflow.getId(), tenantId);
         notificationService.notifyExecutionStarted(saved);
+        activityEventService.record(
+                tenantId, saved.getId(), null, userId,
+                ActivityEventType.EXECUTION_STARTED, "EXECUTION", saved.getId(),
+                java.util.Map.of("workflowName", workflow.getName(), "workflowVersion", workflow.getCurrentVersion()));
 
         for (WorkflowNode next : nextNodes) {
             taskService.createFromNode(tenantId, saved.getId(), workflow.getId(), next);
@@ -145,6 +155,10 @@ public class ExecutionService {
         Execution saved = executionRepository.save(execution);
         log.info("Ejecucion cancelada: {}", id);
         notificationService.notifyExecutionCanceled(saved);
+        activityEventService.record(
+                saved.getTenantId(), saved.getId(), null, SecurityUtils.getCurrentUserId(),
+                ActivityEventType.EXECUTION_CANCELED, "EXECUTION", saved.getId(),
+                java.util.Map.of("workflowName", saved.getWorkflowName()));
         return ExecutionResponse.from(saved);
     }
 
@@ -244,6 +258,10 @@ public class ExecutionService {
 
         if (saved.getStatus() == ExecutionStatus.COMPLETED) {
             notificationService.notifyExecutionCompleted(saved);
+            activityEventService.record(
+                    saved.getTenantId(), saved.getId(), null, SecurityUtils.getCurrentUserId(),
+                    ActivityEventType.EXECUTION_COMPLETED, "EXECUTION", saved.getId(),
+                    java.util.Map.of("workflowName", saved.getWorkflowName()));
         }
 
         for (WorkflowNode next : newTaskNodes) {

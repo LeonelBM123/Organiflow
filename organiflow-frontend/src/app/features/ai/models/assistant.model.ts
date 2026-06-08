@@ -34,4 +34,10 @@ export interface AssistantPageBehavior {
   systemPrompt?: string;
   suggestedQuestions?: string[];
   onAiResponse?: (response: AssistantAiResponse) => void;
+  /**
+   * Modo especial de la página. En 'policy-recommend' el avatar enruta el texto
+   * del usuario al recomendador de políticas (deep learning) en vez del LLM
+   * genérico, y muestra el top-3 de workflows para que el usuario elija.
+   */
+  mode?: 'policy-recommend';
 }

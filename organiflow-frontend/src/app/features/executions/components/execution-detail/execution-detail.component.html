@@ -59,6 +59,17 @@
         <app-execution-timeline [nodes]="execution()!.executionNodes" />
       </div>
     </div>
+
+    <!-- Activity Feed -->
+    <div class="section">
+      <h2 class="section-title">Bitácora de actividad</h2>
+      <div class="activity-card">
+        <app-execution-activity
+          [executionId]="execution()!.id"
+          [isLive]="execution()!.status === 'RUNNING'"
+        />
+      </div>
+    </div>
   }
 
 </div>

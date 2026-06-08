@@ -1,2 +1,10 @@
 # Variables de entorno con secretos (copiar .env.example -> .env)
 .env
+
+# Artefactos del modelo de deep learning (modelos, datasets y métricas generados)
+artifacts/
+
+# Caché de Python
+__pycache__/
+*.pyc
+.pytest_cache/

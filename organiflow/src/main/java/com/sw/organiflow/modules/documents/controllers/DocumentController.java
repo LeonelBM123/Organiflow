@@ -1,6 +1,7 @@
 package com.sw.organiflow.modules.documents.controllers;
 
 import com.sw.organiflow.modules.documents.dtos.*;
+import com.sw.organiflow.modules.documents.services.DocumentAnnotationService;
 import com.sw.organiflow.modules.documents.services.DocumentService;
 import com.sw.organiflow.modules.documents.services.OnlyOfficeService;
 import jakarta.validation.Valid;
@@ -24,6 +25,7 @@ public class DocumentController {
 
     private final DocumentService documentService;
     private final OnlyOfficeService onlyOfficeService;
+    private final DocumentAnnotationService annotationService;
 
     /** Emite la URL prefirmada de subida y crea la metadata en estado PENDING_UPLOAD. */
     @PostMapping("/presign-upload")
@@ -87,6 +89,40 @@ public class DocumentController {
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable String id) {
         documentService.delete(id);
+        return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
+    }
+
+    // ── Anotaciones colaborativas: dibujo libre (PDF) y comentarios (PDF/imagen/video) ──
+
+    /** Lista las anotaciones del documento (requiere canView). */
+    @GetMapping("/{id}/annotations")
+    public ResponseEntity<List<AnnotationResponse>> listAnnotations(@PathVariable String id) {
+        return ResponseEntity.ok(annotationService.list(id));
+    }
+
+    /** Crea una anotación: DRAWING requiere canEdit; COMMENT requiere canComment. */
+    @PostMapping("/{id}/annotations")
+    public ResponseEntity<AnnotationResponse> createAnnotation(
+            @PathVariable String id,
+            @Valid @RequestBody CreateAnnotationRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(annotationService.create(id, request));
+    }
+
+    /** Edita el texto de un comentario (solo el autor). */
+    @PutMapping("/{id}/annotations/{annotationId}")
+    public ResponseEntity<AnnotationResponse> updateAnnotation(
+            @PathVariable String id,
+            @PathVariable String annotationId,
+            @Valid @RequestBody UpdateAnnotationRequest request) {
+        return ResponseEntity.ok(annotationService.update(id, annotationId, request));
+    }
+
+    /** Borra una anotación (autor o admin). */
+    @DeleteMapping("/{id}/annotations/{annotationId}")
+    public ResponseEntity<Void> deleteAnnotation(
+            @PathVariable String id,
+            @PathVariable String annotationId) {
+        annotationService.delete(id, annotationId);
         return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
     }
 

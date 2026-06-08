@@ -1,5 +1,7 @@
 package com.sw.organiflow.modules.documents.services;
 
+import com.sw.organiflow.modules.activity.models.ActivityEventType;
+import com.sw.organiflow.modules.activity.services.ActivityEventService;
 import com.sw.organiflow.modules.documents.dtos.EditorConfigResponse;
 import com.sw.organiflow.modules.documents.dtos.OnlyOfficeCallbackRequest;
 import com.sw.organiflow.modules.documents.models.DocumentAsset;
@@ -48,6 +50,7 @@ public class OnlyOfficeService {
     private final S3StorageService s3;
     private final TenantRepository tenantRepository;
     private final UserRepository userRepository;
+    private final ActivityEventService activityEventService;
 
     private final RestClient restClient = RestClient.create();
 
@@ -190,8 +193,17 @@ public class OnlyOfficeService {
         asset.setCurrentVersion(newVersion);
         asset.setDocumentKey(asset.getId() + "-v" + newVersion);
         documentRepository.save(asset);
-
         log.info("Documento {} versionado a v{} via OnlyOffice", asset.getId(), newVersion);
+
+        if (asset.getExecutionId() != null) {
+            activityEventService.record(
+                    asset.getTenantId(), asset.getExecutionId(), asset.getId(),
+                    savedBy,
+                    ActivityEventType.DOCUMENT_VERSION_SAVED, "DOCUMENT", asset.getId(),
+                    java.util.Map.of(
+                            "originalName", asset.getOriginalName() != null ? asset.getOriginalName() : "",
+                            "versionNumber", newVersion));
+        }
     }
 
     // ----------------------------------------------------------------

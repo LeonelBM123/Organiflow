@@ -97,7 +97,8 @@
   margin: 0 0 16px;
 }
 
-.timeline-card {
+.timeline-card,
+.activity-card {
   background: var(--surface-2);
   border: 1px solid var(--border-default);
   border-radius: 12px;

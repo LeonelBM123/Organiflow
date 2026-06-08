@@ -1,0 +1,14 @@
+package com.sw.organiflow.modules.activity.models;
+
+public enum ActivityEventType {
+    EXECUTION_STARTED,
+    EXECUTION_COMPLETED,
+    EXECUTION_CANCELED,
+    TASK_STARTED,
+    TASK_COMPLETED,
+    DOCUMENT_UPLOADED,
+    DOCUMENT_VERSION_SAVED,
+    COMMENT_ADDED,
+    ANNOTATION_ADDED,
+    ANNOTATION_REMOVED
+}

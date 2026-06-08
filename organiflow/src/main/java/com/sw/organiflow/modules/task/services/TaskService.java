@@ -1,6 +1,8 @@
 package com.sw.organiflow.modules.task.services;
 
 import com.sw.organiflow.config.TenantContext;
+import com.sw.organiflow.modules.activity.models.ActivityEventType;
+import com.sw.organiflow.modules.activity.services.ActivityEventService;
 import com.sw.organiflow.modules.department.models.Department;
 import com.sw.organiflow.modules.department.repositories.DepartmentRepository;
 import com.sw.organiflow.modules.execution.services.ExecutionService;
@@ -33,16 +35,19 @@ public class TaskService {
     private final NotificationService notificationService;
     private final ExecutionService executionService;
     private final DepartmentRepository departmentRepository;
+    private final ActivityEventService activityEventService;
 
     @Autowired
     public TaskService(TaskRepository taskRepository,
                        NotificationService notificationService,
                        @Lazy ExecutionService executionService,
-                       DepartmentRepository departmentRepository) {
+                       DepartmentRepository departmentRepository,
+                       ActivityEventService activityEventService) {
         this.taskRepository = taskRepository;
         this.notificationService = notificationService;
         this.executionService = executionService;
         this.departmentRepository = departmentRepository;
+        this.activityEventService = activityEventService;
     }
 
     public Task createFromNode(String tenantId, String executionId, String workflowId,
@@ -148,8 +153,14 @@ public class TaskService {
         Task saved = taskRepository.save(task);
         log.info("Tarea {} completada", id);
 
+        String currentUserId = SecurityUtils.getCurrentUserId();
+        activityEventService.record(
+                saved.getTenantId(), saved.getExecutionId(), null, currentUserId,
+                ActivityEventType.TASK_COMPLETED, "TASK", saved.getId(),
+                java.util.Map.of("nodeName", saved.getNodeName() != null ? saved.getNodeName() : ""));
+
         executionService.advance(task.getExecutionId(), task.getNodeId(), request.getFormData());
-        notificationService.notifyTaskCompleted(saved, SecurityUtils.getCurrentUserId());
+        notificationService.notifyTaskCompleted(saved, currentUserId);
 
         return TaskResponse.from(saved);
     }

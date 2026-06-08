@@ -1,5 +1,7 @@
 package com.sw.organiflow.modules.documents.services;
 
+import com.sw.organiflow.modules.activity.models.ActivityEventType;
+import com.sw.organiflow.modules.activity.services.ActivityEventService;
 import com.sw.organiflow.modules.department.models.Department;
 import com.sw.organiflow.modules.department.repositories.DepartmentRepository;
 import com.sw.organiflow.modules.documents.dtos.*;
@@ -39,6 +41,7 @@ public class DocumentService {
     private final S3StorageService s3;
     private final DocumentPermissionService permissionService;
     private final NotificationService notificationService;
+    private final ActivityEventService activityEventService;
 
     /** Limite de tamano por categoria (bytes). */
     private static final long MAX_VIDEO = 1024L * 1024 * 1024;   // 1 GB
@@ -122,6 +125,18 @@ public class DocumentService {
                 .build());
 
         DocumentAsset saved = documentRepository.save(asset);
+
+        if (saved.getExecutionId() != null) {
+            activityEventService.record(
+                    saved.getTenantId(), saved.getExecutionId(), saved.getId(),
+                    saved.getUploadedByUserId(),
+                    ActivityEventType.DOCUMENT_UPLOADED, "DOCUMENT", saved.getId(),
+                    java.util.Map.of(
+                            "originalName", saved.getOriginalName() != null ? saved.getOriginalName() : "",
+                            "mimeType", saved.getMimeType() != null ? saved.getMimeType() : "",
+                            "sizeBytes", saved.getSizeBytes()));
+        }
+
         return toResponse(saved);
     }
 

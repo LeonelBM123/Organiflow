@@ -146,6 +146,71 @@
   }
 }
 
+/* ── Recomendaciones de políticas (top-3 del deep learning) ─── */
+.policy-recs {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.policy-rec-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--surface-0, #fff);
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  padding: 9px 12px;
+  text-align: left;
+  cursor: pointer;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.12);
+  transition: background 150ms, transform 150ms, border-color 150ms;
+
+  &:hover:not(:disabled) {
+    background: var(--surface-1);
+    border-color: var(--primary-400);
+    transform: translateY(-1px);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: progress;
+  }
+}
+
+.rec-rank {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--primary-500);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.rec-body {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.rec-name {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.rec-score {
+  font-size: 10.5px;
+  color: var(--text-secondary);
+}
+
 /* ── Área del avatar con X en esquina ─────────────────────── */
 .avatar-area {
   position: relative;

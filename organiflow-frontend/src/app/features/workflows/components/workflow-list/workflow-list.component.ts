@@ -8,8 +8,10 @@ import {
 } from '@angular/core';
 import { Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
+import { toast } from 'ngx-sonner';
 import { WorkflowService } from '../../services/workflow.service';
 import { WorkflowSummaryResponse, WorkflowStatus } from '../../models/workflow.model';
+import { PolicyRecommenderService } from '../../../ai/services/policy-recommender.service';
 
 @Component({
   selector: 'app-workflow-list',
@@ -21,12 +23,14 @@ import { WorkflowSummaryResponse, WorkflowStatus } from '../../models/workflow.m
 export class WorkflowListComponent implements OnInit {
 
   private readonly workflowService = inject(WorkflowService);
+  private readonly policyRecommender = inject(PolicyRecommenderService);
   private readonly router = inject(Router);
 
   readonly workflows = signal<WorkflowSummaryResponse[]>([]);
   readonly isLoading = signal(true);
   readonly showCreateForm = signal(false);
   readonly isCreating = signal(false);
+  readonly isTraining = signal(false);
   readonly deleteConfirmId = signal<string | null>(null);
 
   newName = '';
@@ -81,6 +85,26 @@ export class WorkflowListComponent implements OnInit {
 
   editWorkflow(id: string): void {
     this.router.navigate(['/admin/workflows', id, 'edit']);
+  }
+
+  /** Entrena manualmente el recomendador de políticas con los workflows publicados. */
+  trainRecommender(): void {
+    if (this.isTraining()) return;
+    this.isTraining.set(true);
+    this.policyRecommender.trainFromPublished().subscribe({
+      next: (metrics) => {
+        this.isTraining.set(false);
+        toast.success('Recomendador IA entrenado', {
+          description: `Precisión ${(metrics.accuracy * 100).toFixed(0)}% sobre ${metrics.numClasses} políticas.`,
+        });
+      },
+      error: () => {
+        this.isTraining.set(false);
+        toast.error('No se pudo entrenar el recomendador', {
+          description: 'Asegúrate de tener al menos 2 workflows publicados.',
+        });
+      },
+    });
   }
 
   confirmDelete(id: string): void {

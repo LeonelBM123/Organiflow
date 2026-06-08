@@ -410,3 +410,94 @@ class FillFormResponse(BaseModel):
         default_factory=list,
         description="Campos cuyos valores no pudieron determinarse a partir del transcript",
     )
+
+
+# ---------------------------------------------------------------------------
+# Recomendador de políticas de negocio (deep learning)
+# ---------------------------------------------------------------------------
+
+class WorkflowCatalogItem(BaseModel):
+    """Workflow (política) publicado del tenant, candidato a recomendación."""
+
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
+    id: str = Field(description="ID del workflow")
+    name: str = Field(description="Nombre del workflow")
+    description: Optional[str] = Field(
+        default=None, description="Descripción del workflow (mejora la recomendación)"
+    )
+
+
+class PolicyTrainRequest(BaseModel):
+    """Payload para entrenar el recomendador con el catálogo de un tenant."""
+
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
+    tenant_id: str = Field(description="Tenant cuyo modelo se entrena")
+    workflows: List[WorkflowCatalogItem] = Field(
+        description="Workflows publicados (mínimo 2) que serán las clases del modelo"
+    )
+    samples_per_class: int = Field(
+        default=30, ge=5, le=200,
+        description="Cantidad de prompts sintéticos a generar por workflow",
+    )
+    offline: bool = Field(
+        default=False,
+        description="Si es True, genera el dataset por plantillas (sin LLM). Para pruebas.",
+    )
+
+
+class PolicyTrainResponse(BaseModel):
+    """Métricas del entrenamiento del recomendador."""
+
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
+    tenant_id: str = Field(description="Tenant entrenado")
+    num_classes: int = Field(description="Número de workflows (clases)")
+    num_samples: int = Field(description="Total de muestras de entrenamiento")
+    accuracy: float = Field(description="Accuracy top-1 en validación")
+    top3_accuracy: float = Field(description="Accuracy top-3 en validación")
+    per_class_f1: dict[str, float] = Field(
+        description="F1 por índice de clase (0..n-1)"
+    )
+    trained_at: str = Field(description="Marca de tiempo ISO 8601 del entrenamiento")
+
+
+class PolicyRecommendRequest(BaseModel):
+    """Payload para pedir el top-k de workflows a partir de un prompt del cliente."""
+
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
+    tenant_id: str = Field(description="Tenant cuyo modelo se consulta")
+    prompt: str = Field(description="Necesidad del cliente en lenguaje natural")
+    workflows: List[WorkflowCatalogItem] = Field(
+        default_factory=list,
+        description="Catálogo actual (para el fallback coseno y para resolver nombres)",
+    )
+    top_k: int = Field(default=3, ge=1, le=10, description="Cantidad de recomendaciones")
+
+
+class PolicyRecommendation(BaseModel):
+    """Una recomendación de workflow con su score de confianza."""
+
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
+    workflow_id: str = Field(description="ID del workflow recomendado")
+    name: str = Field(description="Nombre del workflow")
+    score: float = Field(description="Confianza en el rango 0..1")
+
+
+class PolicyRecommendResponse(BaseModel):
+    """Resultado del recomendador: ranking top-k + si provino del modelo entrenado."""
+
+    # protected_namespaces=() evita el warning de Pydantic por el campo `model_trained`.
+    model_config = ConfigDict(
+        alias_generator=to_camel, populate_by_name=True, protected_namespaces=()
+    )
+
+    recommendations: List[PolicyRecommendation] = Field(
+        description="Workflows recomendados, de mayor a menor confianza"
+    )
+    model_trained: bool = Field(
+        description="True si vino del clasificador entrenado; False si del fallback coseno"
+    )

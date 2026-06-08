@@ -30,6 +30,8 @@ import { ConnectorPanelComponent } from './connector-panel/connector-panel';
 import { RemoteCursorsComponent } from './remote-cursors/remote-cursors.component';
 import { CollaborationService } from '../../services/collaboration.service';
 import { AuthService } from '../../../../core/services/auth.service';
+import { PolicyRecommenderService } from '../../../ai/services/policy-recommender.service';
+import { toast } from 'ngx-sonner';
 
 export type SaveStatus = 'saved' | 'saving' | 'unsaved' | 'error';
 
@@ -66,6 +68,7 @@ export class WorkflowEditorComponent implements OnInit, AfterViewInit, OnDestroy
   private readonly collaborationService = inject(CollaborationService);
   private readonly authService = inject(AuthService);
   private readonly aiService = inject(AiService);
+  private readonly policyRecommender = inject(PolicyRecommenderService);
   private readonly cdr = inject(ChangeDetectorRef);
   private readonly zone = inject(NgZone);
 
@@ -452,7 +455,10 @@ export class WorkflowEditorComponent implements OnInit, AfterViewInit, OnDestroy
         this.saveStatus.set('saved');
         // Now publish with the latest data guaranteed to be in MongoDB
         this.workflowService.publish(this.workflowId(), { changelog }).subscribe({
-          next: (published) => this.workflow.set(published),
+          next: (published) => {
+            this.workflow.set(published);
+            this.retrainRecommender();
+          },
           error: (err) => alert(err.error?.message || 'Error al publicar'),
         });
       },
@@ -472,7 +478,27 @@ export class WorkflowEditorComponent implements OnInit, AfterViewInit, OnDestroy
   archiveWorkflow(): void {
     if (!confirm('¿Archivar este workflow? No se podrán iniciar nuevas ejecuciones.')) return;
     this.workflowService.archive(this.workflowId()).subscribe({
-      next: (wf) => this.workflow.set(wf),
+      next: (wf) => {
+        this.workflow.set(wf);
+        this.retrainRecommender();
+      },
+    });
+  }
+
+  /**
+   * Reentrena el recomendador de políticas (deep learning) con el catálogo de
+   * workflows publicados. Se dispara automáticamente al publicar/archivar; es
+   * silencioso ante errores (p. ej. menos de 2 workflows publicados).
+   */
+  private retrainRecommender(): void {
+    this.policyRecommender.trainFromPublished().subscribe({
+      next: (metrics) =>
+        toast.success('Recomendador IA actualizado', {
+          description: `Precisión ${(metrics.accuracy * 100).toFixed(0)}% sobre ${metrics.numClasses} políticas.`,
+        }),
+      error: () => {
+        // Silencioso: el catálogo puede tener menos de 2 políticas publicadas.
+      },
     });
   }
 

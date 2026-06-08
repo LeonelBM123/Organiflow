@@ -98,6 +98,41 @@ export const DOCUMENT_CATEGORY_LABEL: Record<DocumentCategory, string> = {
   OTHER: 'Archivo',
 };
 
+// ── Anotaciones colaborativas (fase 3) ──────────────────────────────────────
+
+export type AnnotationType = 'DRAWING' | 'TEXT' | 'COMMENT';
+
+/** Anotación sobre un documento: trazo de dibujo (PDF) o comentario (PDF/imagen/video). */
+export interface DocumentAnnotation {
+  id: string;
+  documentId: string;
+  type: AnnotationType;
+  page: number | null;
+  geometry: string | null;
+  color: string | null;
+  strokeWidth: number | null;
+  text: string | null;
+  authorUserId: string;
+  authorName: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateAnnotationRequest {
+  type: AnnotationType;
+  page?: number | null;
+  geometry?: string | null;
+  color?: string | null;
+  strokeWidth?: number | null;
+  text?: string | null;
+}
+
+/** Evento de sincronización recibido por WebSocket. */
+export interface AnnotationEvent {
+  action: 'CREATED' | 'UPDATED' | 'DELETED';
+  annotation: DocumentAnnotation;
+}
+
 /** Tipos MIME aceptados por el input de archivo (Word/Excel/PPT/PDF/imagen/video). */
 export const ACCEPTED_MIME_TYPES = [
   'application/msword',

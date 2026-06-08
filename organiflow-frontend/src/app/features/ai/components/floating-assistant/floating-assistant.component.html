@@ -43,6 +43,26 @@
       </div>
     }
 
+    <!-- Recomendaciones del recomendador (deep learning): top-3 a elegir -->
+    @if (policyRecommendations().length) {
+      <div class="policy-recs" role="list" aria-label="Políticas recomendadas">
+        @for (rec of policyRecommendations(); track rec.workflowId; let i = $index) {
+          <button
+            class="policy-rec-card"
+            role="listitem"
+            [disabled]="isCreatingExecution()"
+            (click)="onPickPolicy(rec)"
+            [attr.aria-label]="'Iniciar ' + rec.name + ', confianza ' + (rec.score * 100 | number:'1.0-0') + '%'">
+            <span class="rec-rank" aria-hidden="true">{{ i + 1 }}</span>
+            <span class="rec-body">
+              <span class="rec-name">{{ rec.name }}</span>
+              <span class="rec-score">{{ rec.score * 100 | number:'1.0-0' }}% de coincidencia</span>
+            </span>
+          </button>
+        }
+      </div>
+    }
+
     <!-- Avatar 3D flotante — X en esquina superior derecha -->
     <div class="avatar-area" aria-hidden="true">
       <button class="btn-close" (click)="onClose()" aria-label="Cerrar asistente">

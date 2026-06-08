@@ -9,10 +9,11 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { ExecutionService } from '../../services/execution.service';
 import { ExecutionResponse, ExecutionStatus } from '../../models/execution.model';
 import { ExecutionTimelineComponent } from '../execution-timeline/execution-timeline.component';
+import { ExecutionActivityComponent } from '../execution-activity/execution-activity.component';
 
 @Component({
   selector: 'app-execution-detail',
-  imports: [ExecutionTimelineComponent],
+  imports: [ExecutionTimelineComponent, ExecutionActivityComponent],
   templateUrl: './execution-detail.component.html',
   styleUrl: './execution-detail.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
